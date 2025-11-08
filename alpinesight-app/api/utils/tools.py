@@ -52,8 +52,8 @@ def close_globe():
 def get_satellite_timeline(location: str, latitude: float, longitude: float):
     """
     Retrieves historical satellite imagery timeline for a specific location.
-    This is a client-side tool that will trigger the wayback imagery feature.
-    Returns a confirmation so the AI knows the action succeeded.
+    ALWAYS call this tool when the user asks for satellite images, historical imagery, wayback imagery, maps over time, changes over time, or anything similar – EVEN IF the interactive globe is currently open or was just used. The frontend will automatically close the globe and display the timeline.
+    If the user provides coordinates (e.g. "48.8584 N, 2.2945 E"), extract them and call this tool. Do not attempt to answer with a description only; the user expects the imagery viewer.
     """
     return {
         "status": "success",
@@ -125,7 +125,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "get_satellite_timeline",
-            "description": "Retrieves and displays historical satellite imagery timeline for a specific location using ESRI Wayback imagery archive. Use this when the user asks for satellite images, historical imagery, changes over time, or wants to see how a location looked in previous years. Examples: 'show satellite images of Paris', 'get historical imagery for Mount Everest', 'how did this area change over the years'. The tool will display an interactive timeline showing all available satellite imagery versions from 2014 onwards.",
+            "description": "Retrieves and displays historical satellite imagery timeline for a specific location using ESRI Wayback imagery archive. ALWAYS call this tool for any request for satellite, historical, or past imagery, even if the globe is open. Examples: 'show satellite images of Paris', 'get historical imagery for Mount Everest', 'how did this area change over the years'. If coordinates are present (e.g. '48.8584 N, 2.2945 E'), you must still call this tool using parsed decimal degrees. Frontend will close the globe automatically.",
             "parameters": {
                 "type": "object",
                 "properties": {

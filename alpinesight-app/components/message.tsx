@@ -18,6 +18,26 @@ export const PreviewMessage = ({
   message: UIMessage;
   isLoading: boolean;
 }) => {
+  // Determine if this message will actually render any visible content
+  const hasRenderableParts = (message.parts || []).some((part: any) => {
+    if (part.type === "text" && part.text && part.text.trim() !== "") return true;
+    if (part.type === "file") return true;
+    if (part.type?.startsWith("tool-")) {
+      const toolName = part.type.replace("tool-", "");
+      // We render tool outputs when output-available
+      if (part.state === "output-available" && part.output) return true;
+      // We render loading placeholders for weather and satellite timeline
+      if (
+        (part.state === "input-streaming" || part.state === "input-available") &&
+        (toolName === "get_current_weather" || toolName === "get_satellite_timeline")
+      ) return true;
+    }
+    return false;
+  });
+
+  // If assistant message has nothing to show, skip rendering to avoid empty SparklesIcon rows
+  if (message.role === "assistant" && !hasRenderableParts) return null;
+
   return (
     <motion.div
       className="w-full mx-auto max-w-3xl px-4 group/message"
@@ -89,6 +109,13 @@ export const PreviewMessage = ({
                     return (
                       <div key={toolCallId} className="skeleton">
                         <Weather />
+                      </div>
+                    );
+                  }
+                  if (toolName === "get_satellite_timeline") {
+                    return (
+                      <div key={toolCallId} className="text-sm text-muted-foreground py-2">
+                        Fetching satellite imagery...
                       </div>
                     );
                   }

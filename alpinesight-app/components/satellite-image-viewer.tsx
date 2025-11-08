@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { useGlobe } from "@/contexts/globe-context";
 
 interface TimelineItem {
   releaseNum: number;
@@ -28,6 +29,14 @@ export function SatelliteImageViewer({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Ensure globe is closed when the satellite viewer mounts (and clear markers)
+  const { setIsGlobeOpen, clearMarkers } = useGlobe();
+  useEffect(() => {
+    setIsGlobeOpen(false);
+    clearMarkers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     async function fetchTimeline() {
@@ -160,4 +169,3 @@ export function SatelliteImageViewer({
     </div>
   );
 }
-
