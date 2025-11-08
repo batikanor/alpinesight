@@ -162,21 +162,10 @@ export function GlobeModal({ isOpen, onClose }: GlobeModalProps) {
               }
               animateIn={true}
               waitForGlobeReady={true}
-              onGlobeReady={function(this: any) {
-                console.log("🌍 Globe is ready! Checking for camera control methods...");
-
-                // The globe instance is passed as 'this' in the callback
-                globeInstanceRef.current = this;
-
-                // Scene exists as an object - let's explore it
-                console.log("🌍 Scene object:", this.scene);
-                console.log("🌍 Scene keys:", Object.keys(this.scene || {}).slice(0, 20));
-
-                // Check all properties on 'this' for camera-related stuff
-                const allProps = Object.getOwnPropertyNames(this);
-                const cameraProps = allProps.filter(p => p.toLowerCase().includes('camera') || p.toLowerCase().includes('control') || p.toLowerCase().includes('pov'));
-                console.log("🌍 Camera-related props:", cameraProps);
-
+              onGlobeReady={() => {
+                console.log("🌍 Globe is ready!");
+                console.log("🌍 Current ref has pointOfView:", typeof globeInstanceRef.current?.pointOfView);
+                console.log("🌍 Current ref has controls:", typeof globeInstanceRef.current?.controls);
                 setGlobeReady(true);
               }}
             />
