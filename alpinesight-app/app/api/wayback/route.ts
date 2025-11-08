@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     console.log("🗺️ Tile coordinates:", tileCoords);
 
     // Build response with tile URLs
-    const timeline = waybackItems.map((item) => {
+    const timelineRaw = waybackItems.map((item) => {
       // Replace template variables in itemURL
       const tileUrl = item.itemURL
         .replace("{level}", tileCoords.z.toString())
@@ -68,6 +68,37 @@ export async function GET(request: Request) {
         provider: item.layerIdentifier,
       };
     });
+
+    // Filter out duplicates by checking for image equality
+    const timeline = await (async () => {
+      const uniqueImageUrls = new Set<string>();
+      const uniqueItems: (typeof timelineRaw)[0][] = [];
+
+      await Promise.all(
+        timelineRaw.map(async (item) => {
+          try {
+            const response = await fetch(item.tileUrl);
+            if (response.ok) {
+              const imageBuffer = await response.arrayBuffer();
+              const imageBase64 = Buffer.from(imageBuffer).toString("base64");
+              if (!uniqueImageUrls.has(imageBase64)) {
+                uniqueImageUrls.add(imageBase64);
+                uniqueItems.push(item);
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to process image for ${item.tileUrl}`, error);
+          }
+        })
+      );
+
+      // Sort items by release date as the order is not guaranteed with Promise.all
+      return uniqueItems.sort(
+        (a, b) =>
+          new Date(b.releaseDatetime).getTime() -
+          new Date(a.releaseDatetime).getTime()
+      );
+    })();
 
     return NextResponse.json({
       location: { lat, lng },
