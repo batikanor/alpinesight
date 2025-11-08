@@ -5,8 +5,8 @@ import cv2
 from ultralytics import YOLO
 
 def run_single_anything(
-    image_path: str = "/Users/lukasbauer/alpinesight/test_data/sat_1.png",
-    model_name: str = "yolov11x.pt",
+    image_path: str = "/Users/lukasbauer/alpinesight/test_data/sat_2.png",
+    model_name: str = "yolov8x.pt",
     conf_thres: float = 0.01
     
 ):
@@ -61,16 +61,16 @@ def run_single_anything(
     print(f"Annotated image saved to {out_path}")
 
 def run_single_yolo11s(
-    image_path: str = "/Users/lukasbauer/alpinesight/test_data/sat_1.png",
+    image_path: str = "/Users/lukasbauer/alpinesight/test_data/sat_2.png",
     conf_thres: float = 0.05
 ):
     img_path = Path(image_path)
     if not img_path.exists():
         raise FileNotFoundError(img_path)
 
-    model = YOLO("yolo11s.pt")
+    model = YOLO("yolov8x.pt")
 
-    results = model.predict(source=str(img_path), conf=conf_thres, verbose=False)
+    results = model.predict(source=str(img_path), conf=conf_thres, verbose=False, imgsz=512*4)
     if not results:
         print("No results")
         return
@@ -111,7 +111,9 @@ def run_single_yolo11s(
     cv2.imwrite(str(out_path), img)
     print(f"Annotated image saved to {out_path}")
 
+    # print(model.names)
     return out_path
 
 if __name__ == "__main__":
     run_single_yolo11s()
+    
