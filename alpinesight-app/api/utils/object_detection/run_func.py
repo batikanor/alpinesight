@@ -144,14 +144,18 @@ def dummy_run():
     image_paths = [
         "/Users/lukasbauer/alpinesight/test_data/sat_1.png",
         "/Users/lukasbauer/alpinesight/test_data/sat_2.png",
+        "/Users/lukasbauer/alpinesight/test_data/sat_3.jpeg",
+        "/Users/lukasbauer/alpinesight/test_data/sat_4.jpeg",
     ]
     dates = [
         "2025-11-07",
         "2025-11-08",
+        "2025-11-09",
+        "2025-11-10",
     ]
     return count_vehicles_timeseries_simple(image_paths, dates)
 
 if __name__ == "__main__":
     annotated_paths, counts, details = dummy_run()
     print(counts)
-    
+
