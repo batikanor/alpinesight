@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
-from utils.prompt import ClientMessage, convert_to_openai_messages
-from utils.stream import patch_response_with_headers, stream_text
-from utils.tools import AVAILABLE_TOOLS, TOOL_DEFINITIONS
+from .utils.prompt import ClientMessage, convert_to_openai_messages
+from .utils.stream import patch_response_with_headers, stream_text
+from .utils.tools import AVAILABLE_TOOLS, TOOL_DEFINITIONS
 from vercel import oidc
 from vercel.headers import set_headers
 
