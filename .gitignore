@@ -10,3 +10,4 @@ alpinesight-app/api/utils/object_detection/yolov8s-worldv2.pt
 alpinesight-app/api/utils/object_detection/yolov8x.pt
 test_data/sat_1_yolo11_obb.png
 test_data/sat_2.png
+test_data/sat_2_yolo11_obb.png
