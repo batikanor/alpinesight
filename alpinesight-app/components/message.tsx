@@ -9,6 +9,7 @@ import { PreviewAttachment } from "./preview-attachment";
 import { cn } from "@/lib/utils";
 import { Weather } from "./weather";
 import { ToolResult } from "./tool-result";
+import { SatelliteImageViewer } from "./satellite-image-viewer";
 
 export const PreviewMessage = ({
   message,
@@ -59,7 +60,20 @@ export const PreviewMessage = ({
                       </div>
                     );
                   }
-                  if (toolName === "show_location_on_globe" || toolName === "close_globe" || toolName === "get_satellite_timeline") {
+                  if (toolName === "get_satellite_timeline") {
+                    // Show the satellite image viewer inline in the chat
+                    return (
+                      <div key={toolCallId} className="space-y-2">
+                        <ToolResult result={output} />
+                        <SatelliteImageViewer
+                          location={output.location}
+                          latitude={output.latitude}
+                          longitude={output.longitude}
+                        />
+                      </div>
+                    );
+                  }
+                  if (toolName === "show_location_on_globe" || toolName === "close_globe") {
                     return (
                       <div key={toolCallId}>
                         <ToolResult result={output} />

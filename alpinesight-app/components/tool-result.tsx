@@ -35,7 +35,7 @@ export function ToolResult({ result }: ToolResultProps) {
       case "closed_globe":
         return "Globe Closed";
       case "show_satellite_timeline":
-        return "Satellite Timeline Loading";
+        return "Satellite Imagery";
       default:
         return "Action Complete";
     }

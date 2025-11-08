@@ -17,12 +17,6 @@ export interface GlobePointOfView {
   altitude: number;
 }
 
-export interface SatelliteTimelineData {
-  location: string;
-  latitude: number;
-  longitude: number;
-}
-
 interface GlobeContextType {
   isGlobeOpen: boolean;
   setIsGlobeOpen: (open: boolean) => void;
@@ -32,9 +26,6 @@ interface GlobeContextType {
   pointOfView: GlobePointOfView | null;
   setPointOfView: (pov: GlobePointOfView) => void;
   flyToLocation: (lat: number, lng: number, altitude?: number) => void;
-  satelliteTimeline: SatelliteTimelineData | null;
-  setSatelliteTimeline: (data: SatelliteTimelineData | null) => void;
-  showSatelliteTimeline: (location: string, lat: number, lng: number) => void;
 }
 
 const GlobeContext = createContext<GlobeContextType | undefined>(undefined);
@@ -43,7 +34,6 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [isGlobeOpen, setIsGlobeOpen] = useState(false);
   const [markers, setMarkers] = useState<GlobeMarker[]>([]);
   const [pointOfView, setPointOfView] = useState<GlobePointOfView | null>(null);
-  const [satelliteTimeline, setSatelliteTimeline] = useState<SatelliteTimelineData | null>(null);
 
   const addMarker = useCallback((marker: GlobeMarker) => {
     setMarkers((prev) => {
@@ -61,10 +51,6 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     setPointOfView({ lat, lng, altitude });
   }, []);
 
-  const showSatelliteTimeline = useCallback((location: string, lat: number, lng: number) => {
-    setSatelliteTimeline({ location, latitude: lat, longitude: lng });
-  }, []);
-
   return (
     <GlobeContext.Provider
       value={{
@@ -76,9 +62,6 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         pointOfView,
         setPointOfView,
         flyToLocation,
-        satelliteTimeline,
-        setSatelliteTimeline,
-        showSatelliteTimeline,
       }}
     >
       {children}
