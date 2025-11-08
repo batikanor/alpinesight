@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 export function Chat() {
   const chatId = "001";
-  const { setIsGlobeOpen, addMarker, clearMarkers, flyToLocation } = useGlobe();
+  const { setIsGlobeOpen, addMarker, clearMarkers, flyToLocation, showSatelliteTimeline } = useGlobe();
 
   // Track processed tool calls to avoid duplicates
   const processedToolCalls = useRef<Set<string>>(new Set());
@@ -128,9 +128,14 @@ export function Chat() {
       } else if (toolName === "close_globe") {
         setIsGlobeOpen(false);
         clearMarkers();
+      } else if (toolName === "get_satellite_timeline") {
+        console.log("Executing get_satellite_timeline for:", input.location);
+        // Trigger the satellite timeline with the coordinates
+        showSatelliteTimeline(input.location, input.latitude, input.longitude);
+        toast.success(`Loading satellite imagery for ${input.location}`);
       }
     });
-  }, [messages, setIsGlobeOpen, addMarker, clearMarkers, flyToLocation]);
+  }, [messages, setIsGlobeOpen, addMarker, clearMarkers, flyToLocation, showSatelliteTimeline]);
 
   const [messagesContainerRef, messagesEndRef] =
     useScrollToBottom<HTMLDivElement>();

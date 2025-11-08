@@ -49,6 +49,22 @@ def close_globe():
     }
 
 
+def get_satellite_timeline(location: str, latitude: float, longitude: float):
+    """
+    Retrieves historical satellite imagery timeline for a specific location.
+    This is a client-side tool that will trigger the wayback imagery feature.
+    Returns a confirmation so the AI knows the action succeeded.
+    """
+    return {
+        "status": "success",
+        "action": "show_satellite_timeline",
+        "location": location,
+        "latitude": latitude,
+        "longitude": longitude,
+        "message": f"Fetching satellite imagery timeline for {location}"
+    }
+
+
 TOOL_DEFINITIONS = [
     {
         "type": "function",
@@ -105,6 +121,31 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_satellite_timeline",
+            "description": "Retrieves and displays historical satellite imagery timeline for a specific location using ESRI Wayback imagery archive. Use this when the user asks for satellite images, historical imagery, changes over time, or wants to see how a location looked in previous years. Examples: 'show satellite images of Paris', 'get historical imagery for Mount Everest', 'how did this area change over the years'. The tool will display an interactive timeline showing all available satellite imagery versions from 2014 onwards.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The name or address of the location (e.g., 'Nordring 57, Cottbus', 'Eiffel Tower', 'Central Park, New York')",
+                    },
+                    "latitude": {
+                        "type": "number",
+                        "description": "The latitude of the location in decimal degrees",
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "description": "The longitude of the location in decimal degrees",
+                    },
+                },
+                "required": ["location", "latitude", "longitude"],
+            },
+        },
+    },
 ]
 
 
@@ -112,4 +153,5 @@ AVAILABLE_TOOLS = {
     "get_current_weather": get_current_weather,
     "show_location_on_globe": show_location_on_globe,
     "close_globe": close_globe,
+    "get_satellite_timeline": get_satellite_timeline,
 }

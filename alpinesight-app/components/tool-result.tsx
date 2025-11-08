@@ -1,4 +1,4 @@
-import { CheckCircle2, MapPin, X } from "lucide-react";
+import { CheckCircle2, MapPin, X, Satellite } from "lucide-react";
 
 interface ToolResultProps {
   result?: {
@@ -7,6 +7,8 @@ interface ToolResultProps {
     location?: string;
     marker_color?: string;
     message?: string;
+    latitude?: number;
+    longitude?: number;
   };
 }
 
@@ -19,6 +21,8 @@ export function ToolResult({ result }: ToolResultProps) {
         return <MapPin className="w-4 h-4" />;
       case "closed_globe":
         return <X className="w-4 h-4" />;
+      case "show_satellite_timeline":
+        return <Satellite className="w-4 h-4" />;
       default:
         return <CheckCircle2 className="w-4 h-4" />;
     }
@@ -30,6 +34,8 @@ export function ToolResult({ result }: ToolResultProps) {
         return "Location Displayed";
       case "closed_globe":
         return "Globe Closed";
+      case "show_satellite_timeline":
+        return "Satellite Timeline Loading";
       default:
         return "Action Complete";
     }

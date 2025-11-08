@@ -11,6 +11,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^2.0.76
         version: 2.0.89(react@18.2.0)(zod@3.25.76)
+      '@esri/wayback-core':
+        specifier: ^1.0.10
+        version: 1.0.10
       '@radix-ui/react-slot':
         specifier: ^1.1.0
         version: 1.2.4(@types/react@18.2.7)(react@18.2.0)
@@ -179,6 +182,9 @@ packages:
   '@eslint/js@8.41.0':
     resolution: {integrity: sha512-LxcyMGxwmTh2lY9FwHPGWOHmYFCZvbrFCBZL4FzSSsxsRPuhrYUg/49/0KDfW8tnIEaEHtfmn6+NPN+1DqaNmA==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+
+  '@esri/wayback-core@1.0.10':
+    resolution: {integrity: sha512-gN3p868TRVPEUL2X34yqjvjOux40CpnnGcvMLzKpzePvV19OyAblv0rGHab8oM4bP9HY2IXRyDlkx7EZa8B3TA==}
 
   '@humanwhocodes/config-array@0.11.14':
     resolution: {integrity: sha512-3T8LkOmg45BV5FICb15QQMsyUSWrQ8AygVfC7ZG32zOalnqrilm018ZVCw0eapXux8FtA33q8PSRSstjee3jSg==}
@@ -2630,6 +2636,8 @@ snapshots:
       - supports-color
 
   '@eslint/js@8.41.0': {}
+
+  '@esri/wayback-core@1.0.10': {}
 
   '@humanwhocodes/config-array@0.11.14':
     dependencies:

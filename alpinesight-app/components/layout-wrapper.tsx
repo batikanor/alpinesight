@@ -3,6 +3,7 @@
 import { useGlobe } from "@/contexts/globe-context";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
+import { SatelliteTimeline } from "./satellite-timeline";
 
 // Dynamically import GlobeModal to avoid SSR issues with react-globe.gl
 const GlobeModal = dynamic(() => import("./globe-modal").then(mod => ({ default: mod.GlobeModal })), {
@@ -10,7 +11,7 @@ const GlobeModal = dynamic(() => import("./globe-modal").then(mod => ({ default:
 });
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
-  const { isGlobeOpen, setIsGlobeOpen } = useGlobe();
+  const { isGlobeOpen, setIsGlobeOpen, satelliteTimeline, setSatelliteTimeline } = useGlobe();
 
   return (
     <div className="relative w-full h-[calc(100dvh-52px)] overflow-hidden">
@@ -28,6 +29,16 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
       >
         {children}
       </motion.div>
+
+      {/* Satellite Timeline */}
+      {satelliteTimeline && (
+        <SatelliteTimeline
+          location={satelliteTimeline.location}
+          latitude={satelliteTimeline.latitude}
+          longitude={satelliteTimeline.longitude}
+          onClose={() => setSatelliteTimeline(null)}
+        />
+      )}
     </div>
   );
 }

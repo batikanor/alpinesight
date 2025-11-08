@@ -59,7 +59,7 @@ export const PreviewMessage = ({
                       </div>
                     );
                   }
-                  if (toolName === "show_location_on_globe" || toolName === "close_globe") {
+                  if (toolName === "show_location_on_globe" || toolName === "close_globe" || toolName === "get_satellite_timeline") {
                     return (
                       <div key={toolCallId}>
                         <ToolResult result={output} />
