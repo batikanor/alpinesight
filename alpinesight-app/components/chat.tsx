@@ -245,7 +245,7 @@ export function Chat() {
   }, [messages]);
 
   return (
-    <div className="flex flex-col min-w-0 h-full bg-background relative z-20">
+    <div className="flex flex-col min-w-0 h-full relative z-20">
       <div ref={messagesContainerRef} className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4">
         {messagesToRender.length === 0 && <Overview />}
         {messagesToRender.map((message: UIMessage, index: number) => (
@@ -254,7 +254,7 @@ export function Chat() {
         {isLoading && messagesToRender.length > 0 && messagesToRender[messagesToRender.length - 1].role === "user" && <ThinkingMessage />}
         <div ref={messagesEndRef} className="shrink-0 min-w-[24px] min-h-[24px]" />
       </div>
-      <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
+      <form className="flex mx-auto px-4 pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
         <MultimodalInput chatId={chatId} input={input} setInput={setInput} handleSubmit={handleSubmit} isLoading={isLoading} stop={stop} messages={messages} setMessages={setMessages} />
       </form>
     </div>

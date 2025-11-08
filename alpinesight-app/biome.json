@@ -1,0 +1,105 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.2.5/schema.json",
+  "vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": false },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": [
+      "./**",
+      "!node_modules",
+      "!venv",
+      "!dist",
+      "!**/*.css",
+      "!./env.d.ts",
+      "!data",
+      "!.wrangler"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 80,
+    "attributePosition": "auto",
+    "bracketSameLine": false,
+    "bracketSpacing": true,
+    "expand": "auto",
+    "useEditorconfig": true,
+    "includes": ["**", "!**/env.d.ts"]
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "a11y": {
+        "useFocusableInteractive": "warn",
+        "useKeyWithClickEvents": "warn"
+      },
+      "correctness": {
+        "noUnusedImports": "warn",
+        "noUnusedVariables": "warn",
+        "useExhaustiveDependencies": "off"
+      },
+      "style": { "noNonNullAssertion": "off" },
+      "suspicious": { "noConsole": "off" }
+    },
+    "includes": [
+      "**",
+      "!.now/*",
+      "!**/*.css",
+      "!**/.changeset",
+      "!**/dist",
+      "!esm/*",
+      "!public/*",
+      "!**/*.config.js",
+      "!**/.DS_Store",
+      "!**/node_modules",
+      "!**/coverage",
+      "!**/.next",
+      "!**/build",
+      "**/.commitlintrc.cjs",
+      "**/.lintstagedrc.cjs",
+      "**/jest.config.js",
+      "**/plopfile.js",
+      "**/react-shim.js",
+      "**/tsup.config.ts"
+    ]
+  },
+  "javascript": {
+    "formatter": {
+      "jsxQuoteStyle": "double",
+      "quoteProperties": "asNeeded",
+      "trailingCommas": "none",
+      "semicolons": "asNeeded",
+      "arrowParentheses": "always",
+      "bracketSameLine": false,
+      "quoteStyle": "single",
+      "attributePosition": "auto",
+      "bracketSpacing": true
+    }
+  },
+  "html": { "formatter": { "selfCloseVoidElements": "always" } },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "useSortedKeys": "off",
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              ":PACKAGE:",
+              ":BLANK_LINE:",
+              ["@/assets/**"],
+              ":BLANK_LINE:",
+              ["@/common/**", "@/lib/**", "@/api/**", "@/utils/**"],
+              ":BLANK_LINE:",
+              ["./**"]
+            ]
+          }
+        }
+      }
+    }
+  }
+}
