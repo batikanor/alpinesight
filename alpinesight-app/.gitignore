@@ -48,3 +48,4 @@ next-env.d.ts
 
 # Models
 yolov8n.pt
+yolo11n-obb.pt

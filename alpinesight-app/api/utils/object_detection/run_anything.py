@@ -1,3 +1,4 @@
+# DEPRECATED
 # detect_anything_single.py
 
 from pathlib import Path
@@ -61,7 +62,7 @@ def run_single_anything(
     print(f"Annotated image saved to {out_path}")
 
 def run_single_yolo11s(
-    image_path: str = "/Users/lukasbauer/alpinesight/test_data/sat_2.png",
+    image_path: str = "138347.jpeg",
     conf_thres: float = 0.05
 ):
     img_path = Path(image_path)

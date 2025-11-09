@@ -1,3 +1,4 @@
+# DEPRECATED
 # file: fetch_image.py
 import os
 import math

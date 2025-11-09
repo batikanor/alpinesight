@@ -1,3 +1,4 @@
+# DEPRECATED
 # file: detect_vehicles.py
 import os
 from pathlib import Path
