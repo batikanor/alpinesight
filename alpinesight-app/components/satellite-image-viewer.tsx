@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useGlobe } from "@/contexts/globe-context";
@@ -18,17 +18,27 @@ interface SatelliteImageViewerProps {
   location: string;
   latitude: number;
   longitude: number;
+  // New: callback to append analysis message
+  onAnalysisComplete?: (data: { points: { date: string; count: number }[] }) => void;
 }
+
+interface AnnotationEntry { date: string; boxes: { left: number; top: number; size: number }[] }
 
 export function SatelliteImageViewer({
   location,
   latitude,
   longitude,
+  onAnalysisComplete,
 }: SatelliteImageViewerProps) {
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [annotationData, setAnnotationData] = useState<AnnotationEntry[]>([]);
+  const [autoplayDone, setAutoplayDone] = useState(false);
+  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
+  const imageContainerRef = useRef<HTMLDivElement | null>(null);
+  const analysisSentRef = useRef(false);
 
   // Ensure globe is closed when the satellite viewer mounts (and clear markers)
   const { setIsGlobeOpen, clearMarkers } = useGlobe();
@@ -55,6 +65,7 @@ export function SatelliteImageViewer({
         console.log("📸 Received satellite data:", data);
         setTimeline(data.timeline);
         setCurrentIndex(0);
+        analysisSentRef.current = false; // reset analysis sent when new timeline fetched
       } catch (err) {
         console.error("❌ Error fetching wayback timeline:", err);
         setError(err instanceof Error ? err.message : "Unknown error");
@@ -75,6 +86,46 @@ export function SatelliteImageViewer({
   const goToNext = () => {
     setCurrentIndex((prev) => (prev < timeline.length - 1 ? prev + 1 : 0));
   };
+
+  useEffect(() => {
+    // Start autoplay once timeline loaded
+    if (timeline.length && !autoplayDone) {
+      setAnnotationData([]);
+      analysisSentRef.current = false; // reset when restarting autoplay
+      if (autoplayRef.current) clearTimeout(autoplayRef.current);
+      const play = (index: number) => {
+        setCurrentIndex(index);
+        // Single random red square
+        const box = {
+          left: Math.random() * 80 + 5, // percent
+          top: Math.random() * 80 + 5,
+          size: 30,
+        };
+        setAnnotationData((prev) => {
+          if (prev.find((p) => p.date === timeline[index].releaseDate)) return prev;
+          return [...prev, { date: timeline[index].releaseDate, boxes: [box] }];
+        });
+        if (index < timeline.length - 1) {
+          autoplayRef.current = setTimeout(() => play(index + 1), 800);
+        } else {
+          setAutoplayDone(true);
+        }
+      };
+      play(0);
+    }
+  }, [timeline, autoplayDone]);
+
+  // When autoplay completes fire analysis callback
+  useEffect(() => {
+    if (autoplayDone && annotationData.length === timeline.length && onAnalysisComplete && !analysisSentRef.current) {
+      analysisSentRef.current = true;
+      const points = annotationData.map((e) => ({ date: e.date, count: e.boxes.length }));
+      onAnalysisComplete({ points });
+    }
+  }, [autoplayDone, annotationData, timeline.length, onAnalysisComplete]);
+
+  // Cleanup timer
+  useEffect(() => () => { if (autoplayRef.current) clearTimeout(autoplayRef.current); }, []);
 
   if (loading) {
     return (
@@ -118,7 +169,7 @@ export function SatelliteImageViewer({
       </div>
 
       {/* Image Viewer */}
-      <div className="relative aspect-square max-w-full mx-auto bg-black rounded-lg overflow-hidden">
+      <div ref={imageContainerRef} className="relative aspect-square max-w-full mx-auto bg-black rounded-lg overflow-hidden">
         <Image
           src={currentImage.tileUrl}
           alt={`Satellite imagery from ${currentImage.releaseDate}`}
@@ -148,17 +199,41 @@ export function SatelliteImageViewer({
           <p className="text-white text-sm font-semibold">{currentImage.releaseDate}</p>
           <p className="text-xs text-white/70">{currentImage.provider}</p>
         </div>
+
+        {/* Random red square overlay */}
+        {annotationData.find((p) => p.date === currentImage.releaseDate) && (
+          <div className="absolute inset-0 pointer-events-none">
+            {annotationData.find((p) => p.date === currentImage.releaseDate)!.boxes.map((b, i) => (
+              <div
+                key={i}
+                className="absolute border-2 border-red-500"
+                style={{ left: `${b.left}%`, top: `${b.top}%`, width: `${b.size}px`, height: `${b.size}px` }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Autoplay progress indicator */}
+        {!autoplayDone && (
+          <div className="absolute bottom-2 left-2 right-2 h-1 bg-white/20">
+            <div
+              className="h-full bg-red-500 transition-all"
+              style={{ width: `${((annotationData.length - 1) / Math.max(timeline.length - 1, 1)) * 100}%` }}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Timeline Slider */}
-      <div className="space-y-2">
+      {/* Timeline Slider (disabled during autoplay) */}
+      <div className="space-y-2 opacity-80">
         <input
           type="range"
           min="0"
           max={timeline.length - 1}
           value={currentIndex}
           onChange={(e) => setCurrentIndex(parseInt(e.target.value))}
-          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+          disabled={!autoplayDone}
+          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{timeline[timeline.length - 1]?.releaseDate}</span>

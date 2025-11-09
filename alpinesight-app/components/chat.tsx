@@ -249,7 +249,7 @@ export function Chat() {
       <div ref={messagesContainerRef} className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4">
         {messagesToRender.length === 0 && <Overview />}
         {messagesToRender.map((message: UIMessage, index: number) => (
-          <PreviewMessage key={message.id} chatId={chatId} message={message} isLoading={isLoading && messagesToRender.length - 1 === index} />
+          <PreviewMessage key={message.id} chatId={chatId} message={message} isLoading={isLoading && messagesToRender.length - 1 === index} setMessages={setMessages} />
         ))}
         {isLoading && messagesToRender.length > 0 && messagesToRender[messagesToRender.length - 1].role === "user" && <ThinkingMessage />}
         <div ref={messagesEndRef} className="shrink-0 min-w-[24px] min-h-[24px]" />

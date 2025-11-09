@@ -10,13 +10,18 @@ import { cn } from "@/lib/utils";
 import { Weather } from "./weather";
 import { ToolResult } from "./tool-result";
 import { SatelliteImageViewer } from "./satellite-image-viewer";
+import { TimelineChart } from "./timeline-chart";
 
 export const PreviewMessage = ({
   message,
+  chatId,
+  isLoading,
+  setMessages,
 }: {
   chatId: string;
   message: UIMessage;
   isLoading: boolean;
+  setMessages?: React.Dispatch<React.SetStateAction<UIMessage[]>>;
 }) => {
   const parts = message.parts || [];
   const hasToolParts = parts.some((p: any) => p.type?.startsWith("tool-"));
@@ -52,10 +57,12 @@ export const PreviewMessage = ({
       initial={{ y: 5, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       data-role={message.role}
+      data-chat={chatId}
     >
       <div
         className={cn(
-          "group-data-[role=user]/message:bg-primary group-data-[role=user]/message:text-primary-foreground flex gap-4 group-data-[role=user]/message:px-3 w-full group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:py-2 rounded-xl"
+          "group-data-[role=user]/message:bg-primary group-data-[role=user]/message:text-primary-foreground flex gap-4 group-data-[role=user]/message:px-3 w-full group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:py-2 rounded-xl",
+          { "opacity-70": isLoading && message.role === "assistant" }
         )}
       >
         {message.role === "assistant" && (
@@ -72,6 +79,15 @@ export const PreviewMessage = ({
               return (
                 <div key={index} className="flex flex-col gap-4">
                   <Markdown>{part.text}</Markdown>
+                </div>
+              );
+            }
+            // Support custom chart render part
+            if (part.type === "chart-satellite-counts" && part.data?.points) {
+              return (
+                <div key={`chart-${index}`} className="space-y-2">
+                  <div className="text-sm text-muted-foreground">Detected red squares over time</div>
+                  <TimelineChart points={part.data.points} title="Squares per date" />
                 </div>
               );
             }
@@ -98,6 +114,24 @@ export const PreviewMessage = ({
                         location={output.location}
                         latitude={output.latitude}
                         longitude={output.longitude}
+                        onAnalysisComplete={(data) => {
+                          if (!setMessages) return;
+                          const msg: UIMessage = {
+                            id: `assistant-analysis-${Date.now()}` as any,
+                            role: "assistant",
+                            parts: [
+                              {
+                                type: "text",
+                                text: `Here is a quick summary graph of the red squares I counted across ${data.points.length} images.`,
+                              } as any,
+                              {
+                                type: "chart-satellite-counts",
+                                data,
+                              } as any,
+                            ],
+                          };
+                          setMessages((prev) => [...prev, msg]);
+                        }}
                       />
                     </div>
                   );

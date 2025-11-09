@@ -95,8 +95,8 @@ export async function GET(request: Request) {
       // Sort items by release date as the order is not guaranteed with Promise.all
       return uniqueItems.sort(
         (a, b) =>
-          new Date(b.releaseDatetime).getTime() -
-          new Date(a.releaseDatetime).getTime()
+          new Date(a.releaseDatetime).getTime() -
+          new Date(b.releaseDatetime).getTime()
       );
     })();
 
