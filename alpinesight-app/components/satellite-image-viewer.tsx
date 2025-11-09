@@ -23,6 +23,8 @@ interface SatelliteImageViewerProps {
 }
 
 interface AnnotationEntry { date: string; boxes: { left: number; top: number; size: number }[] }
+interface DetectionBox { x1: number; y1: number; x2: number; y2: number; cls?: string; conf?: number }
+interface ImageDetections { date: string; width: number; height: number; boxes: DetectionBox[] }
 
 export function SatelliteImageViewer({
   location,
@@ -35,6 +37,8 @@ export function SatelliteImageViewer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [annotationData, setAnnotationData] = useState<AnnotationEntry[]>([]);
+  const [detections, setDetections] = useState<Record<number, ImageDetections>>({});
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [autoplayDone, setAutoplayDone] = useState(false);
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
   const imageContainerRef = useRef<HTMLDivElement | null>(null);
@@ -124,6 +128,76 @@ export function SatelliteImageViewer({
     }
   }, [autoplayDone, annotationData, timeline.length, onAnalysisComplete]);
 
+  // Container resize observer
+  useEffect(() => {
+    if (!imageContainerRef.current) return;
+    const el = imageContainerRef.current;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setContainerSize({ width: rect.width, height: rect.height });
+    };
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Kick off detection autoplay
+  useEffect(() => {
+    let cancelled = false;
+    async function runDetectionsSequentially() {
+      if (!timeline.length || autoplayDone) return;
+      analysisSentRef.current = false;
+      setDetections({});
+      for (let i = 0; i < timeline.length; i++) {
+        if (cancelled) break;
+        setCurrentIndex(i);
+        try {
+          const resp = await fetch("/api/detect_vehicles", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image_url: timeline[i].tileUrl, conf_thres: 0.2, classes: ["car"] }),
+          });
+          if (!resp.ok) throw new Error(`Detection failed: ${resp.status}`);
+          const data = await resp.json();
+          if (data && !data.error) {
+            setDetections((prev) => ({
+              ...prev,
+              [i]: {
+                date: timeline[i].releaseDate,
+                width: data.width || 256,
+                height: data.height || 256,
+                boxes: (data.boxes || []).map((b: any) => ({ x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2, cls: b.cls, conf: b.conf })),
+              },
+            }));
+          }
+        } catch (e) {
+          console.error("Detection error", e);
+        }
+        // small delay to keep UI responsive
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      if (!cancelled) setAutoplayDone(true);
+    }
+    if (timeline.length) {
+      runDetectionsSequentially();
+    }
+    return () => { cancelled = true; };
+  }, [timeline]);
+
+  // When detection completes, send analysis
+  useEffect(() => {
+    if (!autoplayDone || !onAnalysisComplete || analysisSentRef.current) return;
+    const totalDone = Object.keys(detections).length;
+    if (totalDone !== timeline.length) return;
+    const points = Object.keys(detections)
+      .map((k) => Number(k))
+      .sort((a, b) => a - b)
+      .map((i) => ({ date: detections[i].date, count: detections[i].boxes.length }));
+    analysisSentRef.current = true;
+    onAnalysisComplete({ points });
+  }, [autoplayDone, detections, timeline.length, onAnalysisComplete]);
+
   // Cleanup timer
   useEffect(() => () => { if (autoplayRef.current) clearTimeout(autoplayRef.current); }, []);
 
@@ -181,14 +255,16 @@ export function SatelliteImageViewer({
         {/* Navigation Arrows */}
         <button
           onClick={goToPrevious}
-          className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+          disabled={!autoplayDone}
+          className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors disabled:opacity-40"
           aria-label="Previous image"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
         <button
           onClick={goToNext}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+          disabled={!autoplayDone}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors disabled:opacity-40"
           aria-label="Next image"
         >
           <ChevronRight className="w-5 h-5" />
@@ -200,16 +276,29 @@ export function SatelliteImageViewer({
           <p className="text-xs text-white/70">{currentImage.provider}</p>
         </div>
 
-        {/* Random red square overlay */}
-        {annotationData.find((p) => p.date === currentImage.releaseDate) && (
+        {/* Detection overlay (red boxes around cars) */}
+        {detections[currentIndex] && containerSize.width > 0 && containerSize.height > 0 && (
           <div className="absolute inset-0 pointer-events-none">
-            {annotationData.find((p) => p.date === currentImage.releaseDate)!.boxes.map((b, i) => (
-              <div
-                key={i}
-                className="absolute border-2 border-red-500"
-                style={{ left: `${b.left}%`, top: `${b.top}%`, width: `${b.size}px`, height: `${b.size}px` }}
-              />
-            ))}
+            {(() => {
+              const det = detections[currentIndex]!;
+              const cw = containerSize.width;
+              const ch = containerSize.height;
+              const scale = Math.min(cw / det.width, ch / det.height);
+              const dispW = det.width * scale;
+              const dispH = det.height * scale;
+              const offX = (cw - dispW) / 2;
+              const offY = (ch - dispH) / 2;
+              return det.boxes.map((b, i) => {
+                const left = offX + b.x1 * scale;
+                const top = offY + b.y1 * scale;
+                const w = (b.x2 - b.x1) * scale;
+                const h = (b.y2 - b.y1) * scale;
+                return (
+                  <div key={i} className="absolute border-2 border-red-500"
+                       style={{ left, top, width: w, height: h }} />
+                );
+              });
+            })()}
           </div>
         )}
 
@@ -218,7 +307,7 @@ export function SatelliteImageViewer({
           <div className="absolute bottom-2 left-2 right-2 h-1 bg-white/20">
             <div
               className="h-full bg-red-500 transition-all"
-              style={{ width: `${((annotationData.length - 1) / Math.max(timeline.length - 1, 1)) * 100}%` }}
+              style={{ width: `${((Object.keys(detections).length - 1) / Math.max(timeline.length - 1, 1)) * 100}%` }}
             />
           </div>
         )}
