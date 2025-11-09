@@ -3,9 +3,9 @@ import cv2
 from ultralytics import YOLO
 
 def run_yolo11_obb_single(
-    image_path="/Users/lukasbauer/alpinesight/test_data/sat_5.jpeg",
-    model_path="yolo11n-obb.pt",
-    conf_thres=0.02,
+    image_path="/Users/lukasbauer/alpinesight/test_data/sat_7.jpeg",
+    model_path="yolo11s-obb.pt",
+    conf_thres=0.0001,
 ):
     img_path = Path(image_path)
     if not img_path.exists():
@@ -48,16 +48,16 @@ def run_yolo11_obb_single(
             x2 = int(x2)
             y2 = int(y2)
             cv2.rectangle(vis, (x1, y1), (x2, y2), (0, 255, 0), 1)
-            cv2.putText(
-                vis,
-                f"{cls_name} {conf:.2f}",
-                (x1, max(0, y1 - 3)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.35,
-                (0, 255, 0),
-                1,
-                cv2.LINE_AA,
-            )
+            # cv2.putText(
+            #     vis,
+            #     f"{cls_name} {conf:.2f}",
+            #     (x1, max(0, y1 - 3)),
+            #     cv2.FONT_HERSHEY_SIMPLEX,
+            #     0.35,
+            #     (0, 255, 0),
+            #     1,
+            #     cv2.LINE_AA,
+            # )
 
     out_path = img_path.parent / "sat_1_yolo11_obb.png"
     cv2.imwrite(str(out_path), vis)
