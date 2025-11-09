@@ -11,6 +11,7 @@ httpx==0.28.1
 idna==3.11
 jiter==0.11.1
 openai==2.6.0
+opencv-python-headless==4.10.0.84
 pydantic==2.12.3
 pydantic_core==2.41.4
 python-dotenv==1.1.1
@@ -25,3 +26,5 @@ uvicorn==0.38.0
 vercel==0.3.2
 vercel-sandbox==0.0.2
 vercel-sdk==0.0.8
+numpy==2.3.4
+ultralytics==8.3.226

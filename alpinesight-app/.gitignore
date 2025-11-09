@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Mac
 .DS_STORE
+
+# Models
+yolov8n.pt
