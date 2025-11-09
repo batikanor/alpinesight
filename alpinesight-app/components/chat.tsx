@@ -129,13 +129,93 @@ export function Chat() {
   const [input, setInput] = React.useState("");
   const isLoading = status === "submitted" || status === "streaming";
 
+  // Intent detection - expanded to understand semantic requests
+  const hasSatelliteIntent = (text: string) => {
+    const t = text.toLowerCase();
+
+    // Direct satellite keywords
+    if (t.includes("satellite") || t.includes("historical imagery") ||
+        t.includes("historical satellite") || t.includes("wayback") ||
+        t.includes("imagery")) {
+      return true;
+    }
+
+    // Semantic analysis keywords (for business/popularity analysis)
+    const analysisKeywords = [
+      "analyze", "analysis", "popularity", "popular", "traffic", "visitor",
+      "busy", "occupancy", "trend", "correlate", "correlation", "foot traffic",
+      "activity", "crowded", "visitors", "tourism", "tourist"
+    ];
+
+    const hasAnalysisKeyword = analysisKeywords.some(keyword => t.includes(keyword));
+
+    // If it has analysis keywords AND mentions a location, it's likely satellite intent
+    if (hasAnalysisKeyword) {
+      // Check if there's a location-like pattern (place names, coordinates, etc.)
+      const hasLocation = /\b(in|at|near|of|for)\s+[A-Z]/i.test(text) || // "in Paris", "at Berlin"
+                          /\d+°?\s*[NS]/.test(text) || // coordinates
+                          /[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/.test(text); // Capitalized words (place names)
+
+      if (hasLocation) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Helper to extract location from text
+  const extractLocationFromText = (text: string) => {
+    // Remove analysis keywords and prepositions
+    return text
+      .replace(/^(analyze|check|show|find)\s+(me\s+)?/i, "")
+      .replace(/\b(popularity|traffic|trends?|visitors?|for|of|at|in|near)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
   const handleSubmit = (e?: { preventDefault?: () => void }) => {
     e?.preventDefault?.();
     if (!input.trim() || !selectedModel) return;
     const text = input.trim();
 
-    // No fallback logic, just send the message
     sendMessage({ role: "user", parts: [{ type: "text", text }] } as any, { body: { model: selectedModel } } as any);
+
+    // Fallback: if AI doesn't call satellite tool for satellite-intent queries, inject a synthetic call
+    if (hasSatelliteIntent(text)) {
+      setTimeout(async () => {
+        // Check if AI called the tool in last few messages
+        const recentMessages = messages.slice(-3);
+        const hasToolCall = recentMessages.some((m: any) =>
+          m.parts?.some((p: any) => p.type === "tool-get_satellite_timeline")
+        );
+
+        if (!hasToolCall) {
+          console.log("🔧 Fallback: AI didn't call satellite tool, extracting location...");
+          const locationText = extractLocationFromText(text);
+          try {
+            const geocoded = await geocodeLocation(locationText);
+            const synthMsg: UIMessage = {
+              id: `synth-satellite-${Date.now()}` as any,
+              role: "assistant",
+              parts: [
+                {
+                  type: "tool-get_satellite_timeline",
+                  toolCallId: `synth-call-${Date.now()}`,
+                  state: "output-available",
+                  input: { location: geocoded.name, latitude: geocoded.lat, longitude: geocoded.lng },
+                  output: { status: "success", action: "show_satellite_timeline", location: geocoded.name, latitude: geocoded.lat, longitude: geocoded.lng, message: `Analyzing ${geocoded.name}` },
+                } as any,
+              ],
+            };
+            setMessages((prev) => [...prev, synthMsg]);
+          } catch (error) {
+            console.error("Fallback geocoding failed:", error);
+          }
+        }
+      }, 2500);
+    }
+
     setInput("");
   };
 

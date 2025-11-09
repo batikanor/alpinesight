@@ -14,7 +14,7 @@ export const Overview = () => {
         <p className="text-lg md:text-5xl text-muted-foreground">
           <span className="text-amber-800">Alpine</span>sight
         </p>
-        <p>Some caption</p>
+        <p>Get intelligent, data supported insgihts that help your business</p>
       </div>
     </motion.div>
   );
