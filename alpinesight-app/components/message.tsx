@@ -86,8 +86,8 @@ export const PreviewMessage = ({
             if (part.type === "chart-satellite-counts" && part.data?.points) {
               return (
                 <div key={`chart-${index}`} className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Detected red squares over time</div>
-                  <TimelineChart points={part.data.points} title="Squares per date" />
+                  <div className="text-sm text-muted-foreground">Detected vehicles over time</div>
+                  <TimelineChart points={part.data.points} title="Vehicles per date" />
                 </div>
               );
             }
@@ -122,7 +122,7 @@ export const PreviewMessage = ({
                             parts: [
                               {
                                 type: "text",
-                                text: `Here is a quick summary graph of the red squares I counted across ${data.points.length} images.`,
+                                text: `Here is a summary graph showing the number of vehicles detected across ${data.points.length} satellite images over time.`,
                               } as any,
                               {
                                 type: "chart-satellite-counts",

@@ -36,11 +36,9 @@ export function SatelliteImageViewer({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [annotationData, setAnnotationData] = useState<AnnotationEntry[]>([]);
   const [detections, setDetections] = useState<Record<number, ImageDetections>>({});
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [autoplayDone, setAutoplayDone] = useState(false);
-  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
   const imageContainerRef = useRef<HTMLDivElement | null>(null);
   const analysisSentRef = useRef(false);
 
@@ -91,42 +89,6 @@ export function SatelliteImageViewer({
     setCurrentIndex((prev) => (prev < timeline.length - 1 ? prev + 1 : 0));
   };
 
-  useEffect(() => {
-    // Start autoplay once timeline loaded
-    if (timeline.length && !autoplayDone) {
-      setAnnotationData([]);
-      analysisSentRef.current = false; // reset when restarting autoplay
-      if (autoplayRef.current) clearTimeout(autoplayRef.current);
-      const play = (index: number) => {
-        setCurrentIndex(index);
-        // Single random red square
-        const box = {
-          left: Math.random() * 80 + 5, // percent
-          top: Math.random() * 80 + 5,
-          size: 30,
-        };
-        setAnnotationData((prev) => {
-          if (prev.find((p) => p.date === timeline[index].releaseDate)) return prev;
-          return [...prev, { date: timeline[index].releaseDate, boxes: [box] }];
-        });
-        if (index < timeline.length - 1) {
-          autoplayRef.current = setTimeout(() => play(index + 1), 800);
-        } else {
-          setAutoplayDone(true);
-        }
-      };
-      play(0);
-    }
-  }, [timeline, autoplayDone]);
-
-  // When autoplay completes fire analysis callback
-  useEffect(() => {
-    if (autoplayDone && annotationData.length === timeline.length && onAnalysisComplete && !analysisSentRef.current) {
-      analysisSentRef.current = true;
-      const points = annotationData.map((e) => ({ date: e.date, count: e.boxes.length }));
-      onAnalysisComplete({ points });
-    }
-  }, [autoplayDone, annotationData, timeline.length, onAnalysisComplete]);
 
   // Container resize observer
   useEffect(() => {
@@ -198,8 +160,6 @@ export function SatelliteImageViewer({
     onAnalysisComplete({ points });
   }, [autoplayDone, detections, timeline.length, onAnalysisComplete]);
 
-  // Cleanup timer
-  useEffect(() => () => { if (autoplayRef.current) clearTimeout(autoplayRef.current); }, []);
 
   if (loading) {
     return (

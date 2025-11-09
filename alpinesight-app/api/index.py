@@ -98,6 +98,7 @@ class DetectRequest(BaseModel):
 
 @app.post("/api/detect_vehicles")
 async def detect_vehicles(req: DetectRequest):
+    """Single image vehicle detection endpoint - used by frontend for real-time detection"""
     if yolo_model is None:
         return {"error": "YOLO model not available on server"}
     try:
@@ -107,46 +108,48 @@ async def detect_vehicles(req: DetectRequest):
         img = cv2.imdecode(data, cv2.IMREAD_COLOR)
         if img is None:
             return {"error": "Failed to decode image"}
-        # Run YOLO
+
+        # Run YOLO detection
         results = yolo_model.predict(source=img, conf=req.conf_thres or 0.25, verbose=False)
         if not results:
-            return {"boxes": [], "total": 0, "per_class": {}, "width": int(0), "height": int(0), "annotated_image": None}
+            return {
+                "boxes": [],
+                "total": 0,
+                "per_class": {},
+                "width": int(img.shape[1]) if img is not None else 0,
+                "height": int(img.shape[0]) if img is not None else 0,
+            }
+
         result = results[0]
         detections = filter_vehicle_detections(result)
+
         # Optionally filter to provided classes
         if req.classes:
             keep = set(req.classes)
             detections = [d for d in detections if d[0] in keep]
+
         # Build boxes and counts
         h, w = img.shape[:2]
         per_class: dict[str, int] = {}
         boxes = []
+
         for cls_name, conf, x1, y1, x2, y2 in detections:
             per_class[cls_name] = per_class.get(cls_name, 0) + 1
             boxes.append({
                 "cls": cls_name,
-                "conf": conf,
-                "x1": int(x1), "y1": int(y1), "x2": int(x2), "y2": int(y2),
+                "conf": float(conf),
+                "x1": int(x1),
+                "y1": int(y1),
+                "x2": int(x2),
+                "y2": int(y2),
             })
-        # Draw red boxes on a copy
-        annotated = img.copy()
-        for b in boxes:
-            cv2.rectangle(annotated, (b["x1"], b["y1"]), (b["x2"], b["y2"]), (0, 0, 255), 2)
-        ok, png = cv2.imencode(".png", annotated)
-        annotated_b64 = None
-        if ok:
-            annotated_b64 = "data:image/png;base64," + (png.tobytes()).hex()  # will replace with base64 below
-        # Proper base64 encode
-        import base64
-        if ok:
-            annotated_b64 = "data:image/png;base64," + base64.b64encode(png.tobytes()).decode("ascii")
+
         return {
             "boxes": boxes,
             "total": sum(per_class.values()),
             "per_class": per_class,
             "width": int(w),
             "height": int(h),
-            "annotated_image": annotated_b64,
         }
     except Exception as e:
         return {"error": str(e)}
