@@ -43,7 +43,7 @@ export default function RootLayout({
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            opacity: 0.07,
+            opacity: 0.09,
             zIndex: -1,
           }}
         />
