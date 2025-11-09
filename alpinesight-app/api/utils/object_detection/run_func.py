@@ -1,6 +1,16 @@
 from pathlib import Path
 import cv2
-from ultralytics import YOLO
+
+# Use ONNX Runtime instead of ultralytics for production deployment
+# Note: OBB (Oriented Bounding Boxes) require yolo11n-obb model
+# For now, this falls back to ultralytics in production
+# TODO: Export yolo11n-obb.pt to ONNX for full production support
+try:
+    from api.utils.object_detection.onnx_detector import YOLO_ONNX as YOLO
+    USE_ONNX = True
+except ImportError:
+    from ultralytics import YOLO
+    USE_ONNX = False
 
 def is_vehicle_label(name: str) -> bool:
     name = name.lower()
@@ -24,11 +34,20 @@ def count_vehicles_timeseries_simple(
       annotated_paths: list of output image paths
       counts: list of vehicle counts per image
       details: list of dicts per image
+
+    Note: OBB detection currently requires ultralytics.
+    For production ONNX deployment, use standard detection (detect.py) instead.
     """
     if len(image_paths) != len(dates):
         raise ValueError("image_paths and dates must have same length")
 
-    model = YOLO(model_path)
+    # OBB models require ultralytics, so force fallback
+    if USE_ONNX and "obb" in model_path.lower():
+        print("⚠️ OBB detection requires ultralytics. Falling back to PyTorch.")
+        from ultralytics import YOLO as YOLO_PT
+        model = YOLO_PT(model_path)
+    else:
+        model = YOLO(model_path)
 
     annotated_paths = []
     counts = []

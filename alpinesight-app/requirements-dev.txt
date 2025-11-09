@@ -1,5 +1,4 @@
-# Production dependencies for Vercel deployment
-# Core API dependencies (minimal size for current functionality)
+# Development dependencies (local Mac development with PyTorch)
 annotated-types==0.7.0
 anyio==4.11.0
 certifi==2025.10.5
@@ -13,6 +12,7 @@ httpx==0.28.1
 idna==3.11
 jiter==0.11.1
 openai==2.6.0
+opencv-python-headless==4.10.0.84
 pydantic==2.12.3
 pydantic_core==2.41.4
 python-dotenv==1.1.1
@@ -27,11 +27,8 @@ uvicorn==0.38.0
 vercel==0.3.2
 vercel-sandbox==0.0.2
 vercel-sdk==0.0.8
-
-# YOLO detection dependencies (ONNX Runtime instead of PyTorch)
-# Uncompressed: ~300 MB, Compressed (gzip): ~40 MB
-# Fits within Vercel's 250 MB limit (total: 131 MB compressed)
 numpy==2.3.4
-onnxruntime==1.20.1
-opencv-python-headless==4.10.0.84
-Pillow==11.1.0
+ultralytics==8.3.226
+
+# For ONNX export (development only)
+onnx==1.17.0

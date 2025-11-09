@@ -4,7 +4,15 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from ultralytics import YOLO
+
+# Use ONNX Runtime instead of ultralytics for production deployment
+try:
+    from api.utils.object_detection.onnx_detector import YOLO_ONNX as YOLO
+    USE_ONNX = True
+except ImportError:
+    # Fallback to ultralytics for development
+    from ultralytics import YOLO
+    USE_ONNX = False
 
 # Define which classes count as "vehicles" for your use case
 VEHICLE_CLASSES = {
@@ -19,7 +27,17 @@ VEHICLE_CLASSES = {
 def load_model(model_name: str = "yolov8n.pt") -> YOLO:
     """
     Use yolov8n for speed or yolov8s/m for better accuracy.
+
+    For production (ONNX): model_name should be "api/models/yolov8n.onnx"
+    For development (PyTorch): model_name should be "yolov8n.pt"
     """
+    # Auto-convert .pt to .onnx path for production
+    if USE_ONNX and model_name.endswith('.pt'):
+        model_name = model_name.replace('.pt', '.onnx')
+        if not model_name.startswith('api/models/'):
+            model_name = f"api/models/{os.path.basename(model_name)}"
+
+    print(f"🔄 Loading model: {model_name} ({'ONNX' if USE_ONNX else 'PyTorch'})")
     return YOLO(model_name)
 
 def filter_vehicle_detections(result, vehicle_classes=VEHICLE_CLASSES):

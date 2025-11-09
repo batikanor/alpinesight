@@ -46,5 +46,29 @@ next-env.d.ts
 # Mac
 .DS_STORE
 
-# Models
-yolov8n.pt
+# ML Models - exclude large model files from git
+# PyTorch models
+*.pt
+*.pth
+*.ckpt
+
+# ONNX models
+*.onnx
+
+# TensorFlow models
+*.pb
+*.h5
+*.tflite
+
+# Other model formats
+*.engine
+*.plan
+*.caffemodel
+*.mlmodel
+
+# Model directories
+/api/models/*.pt
+/api/models/*.onnx
+/weights/
+/models/
+/checkpoints/

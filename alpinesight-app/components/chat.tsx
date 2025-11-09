@@ -39,6 +39,13 @@ export function Chat() {
     id: chatId,
     onError: (error: Error) => {
       console.error("Chat error:", error);
+
+      // Suppress synthetic tool call errors (these are fallback behaviors and expected)
+      if (error.message.includes('synth-')) {
+        console.warn("⚠️ Synthetic tool call error (expected, suppressed):", error.message.substring(0, 200));
+        return;
+      }
+
       if (error.message.match(/Too many requests|429|rate-limited/i)) {
         toast.error("Rate limit reached. Please wait or use a different model.", { duration: 5000 });
       } else if (error.message.match(/API|fetch/i)) {
@@ -177,6 +184,10 @@ export function Chat() {
       const input = part.input;
       if (toolName === "show_location_on_globe") {
         try {
+          if (!input?.location) {
+            console.warn("⚠️ show_location_on_globe called but input.location is missing");
+            return;
+          }
           const result = await geocodeLocation(input.location);
           clearMarkers(); setIsGlobeOpen(true);
           setTimeout(() => {
@@ -184,7 +195,9 @@ export function Chat() {
             flyToLocation(result.lat, result.lng, 0.45);
             toast.success(`Showing ${result.name} on the globe`);
           }, 400);
-        } catch { toast.error(`Could not find location: ${input.location}`); }
+        } catch (error) {
+          toast.error(`Could not find location: ${input?.location || 'unknown'}`);
+        }
       } else if (toolName === "close_globe") { setIsGlobeOpen(false); clearMarkers(); }
       else if (toolName === "get_satellite_timeline") { setIsGlobeOpen(false); clearMarkers(); cancelSatelliteFallback(); }
     });

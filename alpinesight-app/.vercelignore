@@ -1,0 +1,51 @@
+# Build artifacts that shouldn't be deployed
+.next/cache/
+.next/trace/
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# YOLO models (download at runtime instead)
+*.pt
+*.pth
+*.onnx
+*.engine
+*.mlmodel
+models/
+weights/
+
+# Development files
+.git/
+.gitignore
+.env*.local
+.DS_Store
+*.log
+.idea/
+
+# Test files
+tests/
+test/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+
+# Large dependencies that can be minimized
+node_modules/.cache/

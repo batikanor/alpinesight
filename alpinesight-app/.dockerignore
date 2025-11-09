@@ -1,0 +1,76 @@
+# Node modules and frontend build
+node_modules/
+.next/
+out/
+
+# Python cache and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+
+# Git and version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# Testing and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Environment variables (add to environment in Vercel)
+.env
+.env.local
+.env*.local
+
+# Documentation and markdown
+*.md
+docs/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel/
+
+# Frontend source (not needed in API container)
+app/
+components/
+contexts/
+public/
+styles/
+
+# Config files not needed in container
+package.json
+package-lock.json
+pnpm-lock.yaml
+tsconfig.json
+next.config.js
+tailwind.config.ts
+postcss.config.js
+biome.json
