@@ -2,7 +2,7 @@ import os
 from typing import List
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, Request as FastAPIRequest
+from fastapi import FastAPI, Query, Request as FastAPIRequest, Body
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from .utils.prompt import ClientMessage, convert_to_openai_messages
@@ -10,6 +10,10 @@ from .utils.stream import patch_response_with_headers, stream_text
 from .utils.tools import AVAILABLE_TOOLS, TOOL_DEFINITIONS
 from vercel import oidc
 from vercel.headers import set_headers
+import requests
+import numpy as np
+import cv2
+from .utils.object_detection.detect import load_model, filter_vehicle_detections
 
 
 load_dotenv(".env.local")
@@ -78,3 +82,71 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
         media_type="text/event-stream",
     )
     return patch_response_with_headers(response, protocol)
+
+
+# Initialize YOLO model once
+try:
+    yolo_model = load_model("yolov8n.pt")
+except Exception as e:
+    yolo_model = None
+    print("[YOLO] Failed to load model:", e)
+
+class DetectRequest(BaseModel):
+    image_url: str
+    conf_thres: float | None = 0.1
+    classes: list[str] | None = None  # e.g., ["car"]
+
+@app.post("/api/detect_vehicles")
+async def detect_vehicles(req: DetectRequest):
+    if yolo_model is None:
+        return {"error": "YOLO model not available on server"}
+    try:
+        resp = requests.get(req.image_url, timeout=25)
+        resp.raise_for_status()
+        data = np.frombuffer(resp.content, dtype=np.uint8)
+        img = cv2.imdecode(data, cv2.IMREAD_COLOR)
+        if img is None:
+            return {"error": "Failed to decode image"}
+        # Run YOLO
+        results = yolo_model.predict(source=img, conf=req.conf_thres or 0.25, verbose=False)
+        if not results:
+            return {"boxes": [], "total": 0, "per_class": {}, "width": int(0), "height": int(0), "annotated_image": None}
+        result = results[0]
+        detections = filter_vehicle_detections(result)
+        # Optionally filter to provided classes
+        if req.classes:
+            keep = set(req.classes)
+            detections = [d for d in detections if d[0] in keep]
+        # Build boxes and counts
+        h, w = img.shape[:2]
+        per_class: dict[str, int] = {}
+        boxes = []
+        for cls_name, conf, x1, y1, x2, y2 in detections:
+            per_class[cls_name] = per_class.get(cls_name, 0) + 1
+            boxes.append({
+                "cls": cls_name,
+                "conf": conf,
+                "x1": int(x1), "y1": int(y1), "x2": int(x2), "y2": int(y2),
+            })
+        # Draw red boxes on a copy
+        annotated = img.copy()
+        for b in boxes:
+            cv2.rectangle(annotated, (b["x1"], b["y1"]), (b["x2"], b["y2"]), (0, 0, 255), 2)
+        ok, png = cv2.imencode(".png", annotated)
+        annotated_b64 = None
+        if ok:
+            annotated_b64 = "data:image/png;base64," + (png.tobytes()).hex()  # will replace with base64 below
+        # Proper base64 encode
+        import base64
+        if ok:
+            annotated_b64 = "data:image/png;base64," + base64.b64encode(png.tobytes()).decode("ascii")
+        return {
+            "boxes": boxes,
+            "total": sum(per_class.values()),
+            "per_class": per_class,
+            "width": int(w),
+            "height": int(h),
+            "annotated_image": annotated_b64,
+        }
+    except Exception as e:
+        return {"error": str(e)}

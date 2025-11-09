@@ -15,6 +15,57 @@ function latLngToTile(lat: number, lng: number, zoom: number) {
   return { x: xTile, y: yTile, z: zoom };
 }
 
+// Concurrency + retry helpers to avoid hammering remote tile server
+async function fetchWithRetry(url: string, attempts = 3, delayMs = 250): Promise<ArrayBuffer | null> {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const resp = await fetch(url, { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.arrayBuffer();
+    } catch (err) {
+      if (i === attempts) return null;
+      await new Promise(r => setTimeout(r, delayMs * i));
+    }
+  }
+  return null;
+}
+
+async function dedupeTimelineByImage(timelineRaw: any[], concurrency = 8) {
+  const uniqueImageHashes = new Set<string>();
+  const uniqueItems: typeof timelineRaw = [];
+  const errors: { url: string; error: string }[] = [];
+  let index = 0;
+
+  async function worker() {
+    while (index < timelineRaw.length) {
+      const current = timelineRaw[index++];
+      try {
+        const buf = await fetchWithRetry(current.tileUrl);
+        if (!buf) {
+          errors.push({ url: current.tileUrl, error: 'fetch-failed' });
+          continue;
+        }
+        const b64 = Buffer.from(buf).toString('base64');
+        if (!uniqueImageHashes.has(b64)) {
+          uniqueImageHashes.add(b64);
+          uniqueItems.push(current);
+        }
+      } catch (e: any) {
+        errors.push({ url: current.tileUrl, error: e?.message || 'unknown' });
+      }
+    }
+  }
+
+  const workers = Array.from({ length: concurrency }, () => worker());
+  await Promise.all(workers);
+
+  // Sort chronologically
+  uniqueItems.sort(
+    (a, b) => new Date(a.releaseDatetime).getTime() - new Date(b.releaseDatetime).getTime()
+  );
+  return { uniqueItems, errors };
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -69,43 +120,18 @@ export async function GET(request: Request) {
       };
     });
 
-    // Filter out duplicates by checking for image equality
-    const timeline = await (async () => {
-      const uniqueImageUrls = new Set<string>();
-      const uniqueItems: (typeof timelineRaw)[0][] = [];
-
-      await Promise.all(
-        timelineRaw.map(async (item) => {
-          try {
-            const response = await fetch(item.tileUrl);
-            if (response.ok) {
-              const imageBuffer = await response.arrayBuffer();
-              const imageBase64 = Buffer.from(imageBuffer).toString("base64");
-              if (!uniqueImageUrls.has(imageBase64)) {
-                uniqueImageUrls.add(imageBase64);
-                uniqueItems.push(item);
-              }
-            }
-          } catch (error) {
-            console.error(`Failed to process image for ${item.tileUrl}`, error);
-          }
-        })
-      );
-
-      // Sort items by release date as the order is not guaranteed with Promise.all
-      return uniqueItems.sort(
-        (a, b) =>
-          new Date(a.releaseDatetime).getTime() -
-          new Date(b.releaseDatetime).getTime()
-      );
-    })();
+    // Concurrency-limited duplicate filtering
+    console.log(`🔄 Deduping ${timelineRaw.length} candidate tiles with limited concurrency...`);
+    const { uniqueItems, errors } = await dedupeTimelineByImage(timelineRaw, 8);
+    console.log(`✅ Deduped to ${uniqueItems.length} unique tiles (errors: ${errors.length})`);
 
     return NextResponse.json({
       location: { lat, lng },
       zoom,
       tileCoords,
-      count: timeline.length,
-      timeline,
+      count: uniqueItems.length,
+      timeline: uniqueItems,
+      errors,
     });
   } catch (error) {
     console.error("Wayback API error:", error);
