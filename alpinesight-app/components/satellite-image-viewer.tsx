@@ -213,7 +213,7 @@ export function SatelliteImageViewer({
   if (!currentImage) return null;
 
   return (
-    <div className="space-y-4 p-4 rounded-lg border border-border/50 bg-muted/30">
+    <div className="space-y-4 p-4 rounded-lg border border-border/50 bg-muted/30" style={{ overflowAnchor: 'none', contain: 'layout' }} data-no-scroll="true">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -227,7 +227,7 @@ export function SatelliteImageViewer({
       </div>
 
       {/* Image Viewer */}
-      <div ref={imageContainerRef} className="relative aspect-square max-w-full mx-auto bg-black rounded-lg overflow-hidden">
+      <div ref={imageContainerRef} className="relative aspect-square max-w-md mx-auto bg-black rounded-lg overflow-hidden" style={{ overflowAnchor: 'none' }}>
         {detections[currentIndex]?.annotatedImage ? (
           // Show annotated image with bounding boxes drawn on it
           <Image
@@ -254,7 +254,7 @@ export function SatelliteImageViewer({
         <button
           onClick={goToPrevious}
           disabled={!autoplayDone}
-          className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors disabled:opacity-40"
+          className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors disabled:opacity-40 z-20"
           aria-label="Previous image"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -262,21 +262,21 @@ export function SatelliteImageViewer({
         <button
           onClick={goToNext}
           disabled={!autoplayDone}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors disabled:opacity-40"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors disabled:opacity-40 z-20"
           aria-label="Next image"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
 
         {/* Date Label */}
-        <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/70 backdrop-blur-sm">
+        <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/70 backdrop-blur-sm z-20">
           <p className="text-white text-sm font-semibold">{currentImage.releaseDate}</p>
           <p className="text-xs text-white/70">{currentImage.provider}</p>
         </div>
 
         {/* Detection Count Badge */}
         {detections[currentIndex] && (
-          <div className="absolute top-2 right-2 px-3 py-1.5 rounded-md bg-red-500/90 backdrop-blur-sm">
+          <div className="absolute top-2 right-2 px-3 py-1.5 rounded-md bg-red-500/90 backdrop-blur-sm z-20">
             <p className="text-white text-sm font-semibold">
               🚗 {detections[currentIndex].boxes.length} {detections[currentIndex].boxes.length === 1 ? 'vehicle' : 'vehicles'}
             </p>
@@ -286,7 +286,7 @@ export function SatelliteImageViewer({
 
         {/* Autoplay progress indicator */}
         {!autoplayDone && (
-          <div className="absolute bottom-2 left-2 right-2 h-1 bg-white/20">
+          <div className="absolute bottom-2 left-2 right-2 h-1 bg-white/20 z-20">
             <div
               className="h-full bg-red-500 transition-all"
               style={{ width: `${((Object.keys(detections).length - 1) / Math.max(timeline.length - 1, 1)) * 100}%` }}
@@ -303,6 +303,10 @@ export function SatelliteImageViewer({
           max={timeline.length - 1}
           value={currentIndex}
           onChange={(e) => setCurrentIndex(parseInt(e.target.value))}
+          onFocus={(e) => {
+            e.target.blur();
+            e.target.focus({ preventScroll: true });
+          }}
           disabled={!autoplayDone}
           className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
         />
