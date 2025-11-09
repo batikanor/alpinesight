@@ -13,7 +13,7 @@ from vercel.headers import set_headers
 import requests
 import numpy as np
 import cv2
-from .utils.object_detection.detect import load_model, filter_vehicle_detections
+from .utils.object_detection.detect import load_model
 
 
 load_dotenv(".env.local")
@@ -84,9 +84,9 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
     return patch_response_with_headers(response, protocol)
 
 
-# Initialize YOLO model once
+# Initialize YOLO OBB model once for better satellite image detection
 try:
-    yolo_model = load_model("yolov8n.pt")
+    yolo_model = load_model("yolo11n-obb.pt")
 except Exception as e:
     yolo_model = None
     print("[YOLO] Failed to load model:", e)
@@ -109,8 +109,17 @@ async def detect_vehicles(req: DetectRequest):
         if img is None:
             return {"error": "Failed to decode image"}
 
-        # Run YOLO detection
-        results = yolo_model.predict(source=img, conf=req.conf_thres or 0.25, verbose=False)
+        # Run YOLO OBB detection with parameters optimized for satellite imagery
+        # Use higher imgsz for small objects and lower confidence threshold
+        results = yolo_model.predict(
+            source=img,
+            conf=req.conf_thres or 0.02,  # Lower threshold for satellite images
+            imgsz=1280,  # Higher resolution for small vehicle detection
+            verbose=False,
+            iou=0.5,
+            agnostic_nms=False,
+        )
+
         if not results:
             return {
                 "boxes": [],
@@ -121,21 +130,52 @@ async def detect_vehicles(req: DetectRequest):
             }
 
         result = results[0]
-        detections = filter_vehicle_detections(result)
 
-        # Optionally filter to provided classes
-        if req.classes:
-            keep = set(req.classes)
-            detections = [d for d in detections if d[0] in keep]
+        # Handle OBB (Oriented Bounding Box) results
+        if result.obb is None or len(result.obb) == 0:
+            return {
+                "boxes": [],
+                "total": 0,
+                "per_class": {},
+                "width": int(img.shape[1]),
+                "height": int(img.shape[0]),
+            }
+
+        # Extract OBB detections
+        boxes = result.obb.xyxy.cpu().numpy()  # axis-aligned boxes from oriented boxes
+        scores = result.obb.conf.cpu().numpy()
+        classes = result.obb.cls.cpu().numpy().astype(int)
+        names = result.names
+
+        # Filter for vehicle-like labels (DOTA dataset style)
+        def is_vehicle_label(name: str) -> bool:
+            name = name.lower()
+            return (
+                "small-vehicle" in name
+                or "large-vehicle" in name
+                or "vehicle" in name
+                or "car" in name
+                or "truck" in name
+            )
 
         # Build boxes and counts
         h, w = img.shape[:2]
         per_class: dict[str, int] = {}
-        boxes = []
+        boxes_list = []
 
-        for cls_name, conf, x1, y1, x2, y2 in detections:
+        for (x1, y1, x2, y2), conf, cls_id in zip(boxes, scores, classes):
+            cls_name = names.get(int(cls_id), str(cls_id))
+
+            # Skip non-vehicle detections
+            if not is_vehicle_label(cls_name):
+                continue
+
+            # Optionally filter to provided classes
+            if req.classes and cls_name not in req.classes:
+                continue
+
             per_class[cls_name] = per_class.get(cls_name, 0) + 1
-            boxes.append({
+            boxes_list.append({
                 "cls": cls_name,
                 "conf": float(conf),
                 "x1": int(x1),
@@ -145,8 +185,8 @@ async def detect_vehicles(req: DetectRequest):
             })
 
         return {
-            "boxes": boxes,
-            "total": sum(per_class.values()),
+            "boxes": boxes_list,
+            "total": len(boxes_list),
             "per_class": per_class,
             "width": int(w),
             "height": int(h),

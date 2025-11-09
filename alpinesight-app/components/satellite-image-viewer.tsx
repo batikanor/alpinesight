@@ -120,7 +120,7 @@ export function SatelliteImageViewer({
           const resp = await fetch("/api/detect_vehicles", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image_url: timeline[i].tileUrl, conf_thres: 0.2, classes: ["car"] }),
+            body: JSON.stringify({ image_url: timeline[i].tileUrl, conf_thres: 0.02 }),
           });
           if (!resp.ok) {
             console.error(`Detection API returned ${resp.status}: ${resp.statusText}`);
@@ -260,35 +260,8 @@ export function SatelliteImageViewer({
         )}
 
         {/* Detection overlay (red boxes around cars) */}
-        {(() => {
-          const hasDetection = !!detections[currentIndex];
-          const hasSize = containerSize.width > 0 && containerSize.height > 0;
-          console.log(`[Overlay Check] currentIndex=${currentIndex}, hasDetection=${hasDetection}, hasSize=${hasSize}, containerSize=`, containerSize);
-          if (hasDetection) {
-            console.log(`[Overlay Check] Detection data for index ${currentIndex}:`, detections[currentIndex]);
-          }
-          return null;
-        })()}
         {detections[currentIndex] && containerSize.width > 0 && containerSize.height > 0 && (
           <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
-            {/* TEST: Fixed position box to verify overlay works */}
-            <div
-              className="absolute"
-              style={{
-                left: '100px',
-                top: '100px',
-                width: '200px',
-                height: '150px',
-                border: '8px solid #ff0000',
-                backgroundColor: 'rgba(255, 0, 0, 0.5)',
-                boxShadow: '0 0 20px rgba(255, 0, 0, 1)',
-                zIndex: 9999
-              }}
-            >
-              <div className="absolute top-0 left-0 bg-yellow-500 text-black px-2 py-1 text-xs font-bold">
-                TEST BOX - If you see this, overlay works!
-              </div>
-            </div>
             {(() => {
               const det = detections[currentIndex]!;
               const cw = containerSize.width;
@@ -298,8 +271,6 @@ export function SatelliteImageViewer({
               const dispH = det.height * scale;
               const offX = (cw - dispW) / 2;
               const offY = (ch - dispH) / 2;
-
-              console.log(`[Detection Overlay] Index ${currentIndex}: ${det.boxes.length} boxes, scale=${scale.toFixed(2)}, img=${det.width}x${det.height}, container=${cw}x${ch}`);
 
               if (det.boxes.length === 0) {
                 return null;
@@ -311,8 +282,6 @@ export function SatelliteImageViewer({
                 const w = (b.x2 - b.x1) * scale;
                 const h = (b.y2 - b.y1) * scale;
 
-                console.log(`[Box ${i}/${det.boxes.length}] cls=${b.cls}, conf=${b.conf?.toFixed(2)}, orig: (${b.x1},${b.y1})-(${b.x2},${b.y2}), rendered: left=${left.toFixed(1)}px, top=${top.toFixed(1)}px, w=${w.toFixed(1)}px, h=${h.toFixed(1)}px`);
-
                 return (
                   <div
                     key={i}
@@ -322,17 +291,17 @@ export function SatelliteImageViewer({
                       top: `${top}px`,
                       width: `${w}px`,
                       height: `${h}px`,
-                      border: '4px solid #ef4444',
-                      backgroundColor: 'rgba(239, 68, 68, 0.25)',
-                      boxShadow: '0 0 0 2px rgba(255, 255, 255, 0.8), 0 0 10px rgba(239, 68, 68, 0.6)',
+                      border: '3px solid #ef4444',
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.8), 0 0 8px rgba(239, 68, 68, 0.5)',
                       borderRadius: '2px'
                     }}
                   >
-                    {/* Optional: Label with confidence */}
-                    {b.cls && b.conf && (
+                    {/* Label with confidence */}
+                    {b.cls && b.conf !== undefined && (
                       <div
-                        className="absolute -top-6 left-0 px-1.5 py-0.5 text-xs font-bold text-white bg-red-500 rounded whitespace-nowrap"
-                        style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
+                        className="absolute -top-5 left-0 px-1 py-0.5 text-[10px] font-semibold text-white bg-red-500 rounded whitespace-nowrap"
+                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
                       >
                         {b.cls} {(b.conf * 100).toFixed(0)}%
                       </div>
