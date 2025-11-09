@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useGlobe } from "@/contexts/globe-context";
+import { detectAerialObjects, Detection } from "@/lib/yolo-aerial-client";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useGlobe } from "@/contexts/globe-context";
-import { detectObjects, Detection } from "@/lib/yolo-client";
+import { useEffect, useRef, useState } from "react";
 
 interface TimelineItem {
   releaseNum: number;
@@ -20,7 +20,9 @@ interface SatelliteImageViewerProps {
   latitude: number;
   longitude: number;
   // New: callback to append analysis message
-  onAnalysisComplete?: (data: { points: { date: string; count: number }[] }) => void;
+  onAnalysisComplete?: (data: {
+    points: { date: string; count: number }[];
+  }) => void;
 }
 
 interface BoundingBox {
@@ -111,15 +113,20 @@ export function SatelliteImageViewer({
         setCurrentIndex(index);
 
         // Run YOLO detection on the current image
-        const img = document.createElement('img');
+        const img = document.createElement("img");
         img.crossOrigin = "anonymous";
         img.src = timeline[index].tileUrl;
 
         try {
           await img.decode();
 
-          // Run detection (lowered confidence threshold for small objects in satellite imagery)
-          const detections = await detectObjects(img, 0.15, 0.45);
+          // Run aerial detection (YOLO11-OBB trained on DOTA dataset for aerial imagery)
+          const detections = await detectAerialObjects(img, 0.000001, 0.3);
+
+          console.log(
+            `🔍 Raw detections for ${timeline[index].releaseDate}:`,
+            detections
+          );
 
           // Convert YOLO detections to bounding boxes (percentage-based)
           const boxes: BoundingBox[] = detections.map((det: Detection) => ({
@@ -131,17 +138,29 @@ export function SatelliteImageViewer({
             confidence: det.confidence,
           }));
 
-          console.log(`🚗 Detected ${boxes.length} objects in ${timeline[index].releaseDate}`);
+          // Filter for vehicles only
+          const vehicleClasses = ["small-vehicle", "large-vehicle"];
+          const vehicles = boxes.filter((b) =>
+            vehicleClasses.includes(b.class)
+          );
+          console.log(
+            `🚗 Detected ${boxes.length} total objects (${vehicles.length} vehicles) in ${timeline[index].releaseDate}`
+          );
 
           setAnnotationData((prev) => {
-            if (prev.find((p) => p.date === timeline[index].releaseDate)) return prev;
-            return [...prev, { date: timeline[index].releaseDate, boxes }];
+            if (prev.find((p) => p.date === timeline[index].releaseDate))
+              return prev;
+            return [
+              ...prev,
+              { date: timeline[index].releaseDate, boxes: vehicles },
+            ]; // Only save vehicles!
           });
         } catch (error) {
           console.error("❌ Detection failed:", error);
           // Add empty boxes on error so we don't block progress
           setAnnotationData((prev) => {
-            if (prev.find((p) => p.date === timeline[index].releaseDate)) return prev;
+            if (prev.find((p) => p.date === timeline[index].releaseDate))
+              return prev;
             return [...prev, { date: timeline[index].releaseDate, boxes: [] }];
           });
         }
@@ -159,21 +178,36 @@ export function SatelliteImageViewer({
 
   // When autoplay completes fire analysis callback
   useEffect(() => {
-    if (autoplayDone && annotationData.length === timeline.length && onAnalysisComplete && !analysisSentRef.current) {
+    if (
+      autoplayDone &&
+      annotationData.length === timeline.length &&
+      onAnalysisComplete &&
+      !analysisSentRef.current
+    ) {
       analysisSentRef.current = true;
-      const points = annotationData.map((e) => ({ date: e.date, count: e.boxes.length }));
+      const points = annotationData.map((e) => ({
+        date: e.date,
+        count: e.boxes.length,
+      }));
       onAnalysisComplete({ points });
     }
   }, [autoplayDone, annotationData, timeline.length, onAnalysisComplete]);
 
   // Cleanup timer
-  useEffect(() => () => { if (autoplayRef.current) clearTimeout(autoplayRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (autoplayRef.current) clearTimeout(autoplayRef.current);
+    },
+    []
+  );
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8 px-4 rounded-lg border border-border/50 bg-muted/30">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mr-2" />
-        <span className="text-muted-foreground">Loading satellite imagery...</span>
+        <span className="text-muted-foreground">
+          Loading satellite imagery...
+        </span>
       </div>
     );
   }
@@ -211,7 +245,10 @@ export function SatelliteImageViewer({
       </div>
 
       {/* Image Viewer */}
-      <div ref={imageContainerRef} className="relative aspect-square max-w-full mx-auto bg-black rounded-lg overflow-hidden">
+      <div
+        ref={imageContainerRef}
+        className="relative aspect-square max-w-full mx-auto bg-black rounded-lg overflow-hidden"
+      >
         <Image
           src={currentImage.tileUrl}
           alt={`Satellite imagery from ${currentImage.releaseDate}`}
@@ -238,26 +275,30 @@ export function SatelliteImageViewer({
 
         {/* Date Label */}
         <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/70 backdrop-blur-sm">
-          <p className="text-white text-sm font-semibold">{currentImage.releaseDate}</p>
+          <p className="text-white text-sm font-semibold">
+            {currentImage.releaseDate}
+          </p>
           <p className="text-xs text-white/70">{currentImage.provider}</p>
         </div>
 
         {/* YOLO Detection Overlay */}
         {annotationData.find((p) => p.date === currentImage.releaseDate) && (
           <div className="absolute inset-0 pointer-events-none">
-            {annotationData.find((p) => p.date === currentImage.releaseDate)!.boxes.map((b, i) => (
-              <div
-                key={i}
-                className="absolute border-2 border-red-500"
-                style={{
-                  left: `${b.left}%`,
-                  top: `${b.top}%`,
-                  width: `${b.width}%`,
-                  height: `${b.height}%`,
-                }}
-                title={`${b.class} (${(b.confidence * 100).toFixed(1)}%)`}
-              />
-            ))}
+            {annotationData
+              .find((p) => p.date === currentImage.releaseDate)!
+              .boxes.map((b, i) => (
+                <div
+                  key={i}
+                  className="absolute border-2 border-red-500"
+                  style={{
+                    left: `${b.left}%`,
+                    top: `${b.top}%`,
+                    width: `${b.width}%`,
+                    height: `${b.height}%`,
+                  }}
+                  title={`${b.class} (${(b.confidence * 100).toFixed(1)}%)`}
+                />
+              ))}
           </div>
         )}
 
@@ -266,7 +307,13 @@ export function SatelliteImageViewer({
           <div className="absolute bottom-2 left-2 right-2 h-1 bg-white/20">
             <div
               className="h-full bg-red-500 transition-all"
-              style={{ width: `${((annotationData.length - 1) / Math.max(timeline.length - 1, 1)) * 100}%` }}
+              style={{
+                width: `${
+                  ((annotationData.length - 1) /
+                    Math.max(timeline.length - 1, 1)) *
+                  100
+                }%`,
+              }}
             />
           </div>
         )}
@@ -285,7 +332,9 @@ export function SatelliteImageViewer({
         />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{timeline[timeline.length - 1]?.releaseDate}</span>
-          <span className="font-medium">{currentIndex + 1} / {timeline.length}</span>
+          <span className="font-medium">
+            {currentIndex + 1} / {timeline.length}
+          </span>
           <span>{timeline[0]?.releaseDate}</span>
         </div>
       </div>
