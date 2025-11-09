@@ -41,7 +41,7 @@ class YOLODetector {
 
     try {
       // Use WebGPU if available, fallback to WASM
-      const executionProviders: ort.ExecutionProviderConfig[] = [];
+      const executionProviders: string[] = [];
 
       if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
         executionProviders.push('webgpu');
@@ -51,7 +51,7 @@ class YOLODetector {
       executionProviders.push('wasm');
 
       this.session = await ort.InferenceSession.create(modelUrl, {
-        executionProviders,
+        executionProviders: executionProviders as any,
       });
 
       this.modelLoaded = true;
