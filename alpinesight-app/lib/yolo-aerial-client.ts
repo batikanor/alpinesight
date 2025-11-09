@@ -3,7 +3,7 @@
  * Uses YOLOv8-OBB model trained on DOTA dataset
  */
 
-import * as ort from 'onnxruntime-web';
+import * as ort from "onnxruntime-web";
 
 export interface Detection {
   class: string;
@@ -12,53 +12,59 @@ export interface Detection {
   angle?: number; // rotation angle for OBB
 }
 
-// DOTA dataset classes (aerial imagery) - official DOTA v1.0 order
+// DOTA dataset classes - we only care about vehicles (indices 9 and 10)
 const DOTA_CLASSES = [
-  'plane',                // 0
-  'ship',                 // 1
-  'storage-tank',         // 2
-  'baseball-diamond',     // 3
-  'tennis-court',         // 4
-  'basketball-court',     // 5
-  'ground-track-field',   // 6
-  'harbor',               // 7
-  'bridge',               // 8
-  'large-vehicle',        // 9
-  'small-vehicle',        // 10
-  'helicopter',           // 11
-  'roundabout',           // 12
-  'soccer-ball-field',    // 13
-  'swimming-pool'         // 14
+  null,
+  null,
+  null,
+  null,
+  null, // 0-4: plane, ship, storage tank, baseball diamond, tennis court
+  null,
+  null,
+  null,
+  null, // 5-8: basketball court, ground track field, harbor, bridge
+  "large vehicle", // 9
+  "small vehicle", // 10
+  null,
+  null,
+  null,
+  null, // 11-14: helicopter, roundabout, soccer ball field, swimming pool
 ];
 
 class YOLOOBBDetector {
   private session: ort.InferenceSession | null = null;
   private modelLoaded = false;
 
-  async loadModel(modelUrl: string = '/models/yolo11n-obb.onnx'): Promise<void> {
+  async loadModel(
+    modelUrl: string = "/models/yolo11n-obb.onnx"
+  ): Promise<void> {
     if (this.modelLoaded) return;
 
-    console.log('🔄 Loading YOLO11-OBB aerial model from:', modelUrl);
+    console.log("🔄 Loading YOLO11-OBB aerial model from:", modelUrl);
 
     try {
       const executionProviders: string[] = [];
 
-      if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
-        executionProviders.push('webgpu');
-        console.log('✅ WebGPU available');
+      if (typeof navigator !== "undefined" && "gpu" in navigator) {
+        executionProviders.push("webgpu");
+        console.log("✅ WebGPU available");
       }
 
-      executionProviders.push('wasm');
+      executionProviders.push("wasm");
 
       this.session = await ort.InferenceSession.create(modelUrl, {
         executionProviders: executionProviders as any,
       });
 
       this.modelLoaded = true;
-      console.log('✅ YOLO11-OBB aerial model loaded successfully');
-      console.log('   Input/Output:', this.session.inputNames, this.session.outputNames);
+      console.log("✅ YOLO11-OBB aerial model loaded successfully");
+      console.log(
+        "   Input/Output:",
+        this.session.inputNames,
+        this.session.outputNames
+      );
     } catch (error) {
-      console.error('❌ Failed to load YOLO-OBB model:', error);
+      console.error("❌ Failed to load YOLO-OBB model:", error);
       throw error;
     }
   }
@@ -76,24 +82,30 @@ class YOLOOBBDetector {
     const padX = Math.floor((targetWidth - scaledWidth) / 2);
     const padY = Math.floor((targetHeight - scaledHeight) / 2);
 
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = targetWidth;
     canvas.height = targetHeight;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext("2d")!;
 
-    ctx.fillStyle = '#808080';
+    ctx.fillStyle = "#808080";
     ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-    const tempCanvas = document.createElement('canvas');
+    const tempCanvas = document.createElement("canvas");
     tempCanvas.width = imageData.width;
     tempCanvas.height = imageData.height;
-    const tempCtx = tempCanvas.getContext('2d')!;
+    const tempCtx = tempCanvas.getContext("2d")!;
     tempCtx.putImageData(imageData, 0, 0);
 
     ctx.drawImage(
       tempCanvas,
-      0, 0, width, height,
-      padX, padY, scaledWidth, scaledHeight
+      0,
+      0,
+      width,
+      height,
+      padX,
+      padY,
+      scaledWidth,
+      scaledHeight
     );
 
     const resizedData = ctx.getImageData(0, 0, targetWidth, targetHeight);
@@ -112,7 +124,12 @@ class YOLOOBBDetector {
       tensorData[2 * targetHeight * targetWidth + pixelIndex] = b;
     }
 
-    const tensor = new ort.Tensor('float32', tensorData, [1, 3, targetHeight, targetWidth]);
+    const tensor = new ort.Tensor("float32", tensorData, [
+      1,
+      3,
+      targetHeight,
+      targetWidth,
+    ]);
 
     return { tensor, scale, padX, padY };
   }
@@ -126,7 +143,7 @@ class YOLOOBBDetector {
     const sortedIndices = scores
       .map((score, idx) => ({ score, idx }))
       .sort((a, b) => b.score - a.score)
-      .map(item => item.idx);
+      .map((item) => item.idx);
 
     while (sortedIndices.length > 0) {
       const current = sortedIndices.shift()!;
@@ -134,11 +151,15 @@ class YOLOOBBDetector {
 
       const currentBox = boxes[current];
 
-      sortedIndices.splice(0, sortedIndices.length, ...sortedIndices.filter(idx => {
-        const box = boxes[idx];
-        const iou = this.calculateIoU(currentBox, box);
-        return iou <= iouThreshold;
-      }));
+      sortedIndices.splice(
+        0,
+        sortedIndices.length,
+        ...sortedIndices.filter((idx) => {
+          const box = boxes[idx];
+          const iou = this.calculateIoU(currentBox, box);
+          return iou <= iouThreshold;
+        })
+      );
     }
 
     return indices;
@@ -163,11 +184,11 @@ class YOLOOBBDetector {
 
   async detect(
     imageData: ImageData,
-    confThreshold = 0.25,
+    confThreshold = 0.001,
     iouThreshold = 0.45
   ): Promise<Detection[]> {
     if (!this.session) {
-      throw new Error('Model not loaded. Call loadModel() first.');
+      throw new Error("Model not loaded. Call loadModel() first.");
     }
 
     const { tensor, scale, padX, padY } = this.preprocessImage(imageData);
@@ -225,10 +246,15 @@ class YOLOOBBDetector {
     console.log(`🔍 Before NMS: ${boxes.length} detections`);
     console.log(`🔍 After NMS: ${keepIndices.length} detections`);
 
-    // Log class distribution
+    // Log class distribution (only vehicles)
     const classCounts: { [key: string]: number } = {};
     for (const idx of keepIndices) {
-      const className = DOTA_CLASSES[classIds[idx]] || `class_${classIds[idx]}`;
+      const classId = classIds[idx];
+      const className = DOTA_CLASSES[classId];
+
+      // Skip if not a vehicle (null in our class list)
+      if (!className) continue;
+
       classCounts[className] = (classCounts[className] || 0) + 1;
 
       detections.push({
@@ -258,10 +284,10 @@ export async function detectAerialObjects(
   confThreshold = 0.15,
   iouThreshold = 0.3
 ): Promise<Detection[]> {
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = image.width;
   canvas.height = image.height;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext("2d")!;
   ctx.drawImage(image, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 

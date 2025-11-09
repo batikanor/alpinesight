@@ -2,6 +2,7 @@
 
 import { useGlobe } from "@/contexts/globe-context";
 import { detectAerialObjects, Detection } from "@/lib/yolo-aerial-client";
+import { detectVehiclesWithVision } from "@/lib/multimodal-detection";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -54,6 +55,9 @@ export function SatelliteImageViewer({
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
   const imageContainerRef = useRef<HTMLDivElement | null>(null);
   const analysisSentRef = useRef(false);
+  const [detectionMode, setDetectionMode] = useState<"yolo" | "multimodal">("multimodal");
+  const [visionProvider, setVisionProvider] = useState<"anthropic" | "openai">("openai");
+  const [liveDetectionResult, setLiveDetectionResult] = useState<string | null>(null);
 
   // Ensure globe is closed when the satellite viewer mounts (and clear markers)
   const { setIsGlobeOpen, clearMarkers } = useGlobe();
@@ -112,48 +116,102 @@ export function SatelliteImageViewer({
       const play = async (index: number) => {
         setCurrentIndex(index);
 
-        // Run YOLO detection on the current image
-        const img = document.createElement("img");
-        img.crossOrigin = "anonymous";
-        img.src = timeline[index].tileUrl;
-
         try {
-          await img.decode();
+          let boxes: BoundingBox[] = [];
 
-          // Run aerial detection (YOLO11-OBB trained on DOTA dataset for aerial imagery)
-          const detections = await detectAerialObjects(img, 0.000001, 0.3);
+          if (detectionMode === "yolo") {
+            // YOLO detection mode
+            setLiveDetectionResult("🔍 Analyzing with YOLO...");
 
-          console.log(
-            `🔍 Raw detections for ${timeline[index].releaseDate}:`,
-            detections
-          );
+            const img = document.createElement("img");
+            img.crossOrigin = "anonymous";
+            img.src = timeline[index].tileUrl;
+            await img.decode();
 
-          // Convert YOLO detections to bounding boxes (percentage-based)
-          const boxes: BoundingBox[] = detections.map((det: Detection) => ({
-            left: (det.bbox[0] / img.width) * 100,
-            top: (det.bbox[1] / img.height) * 100,
-            width: ((det.bbox[2] - det.bbox[0]) / img.width) * 100,
-            height: ((det.bbox[3] - det.bbox[1]) / img.height) * 100,
-            class: det.class,
-            confidence: det.confidence,
-          }));
+            const detections = await detectAerialObjects(img);
 
-          // Filter for vehicles only
-          const vehicleClasses = ["small-vehicle", "large-vehicle"];
-          const vehicles = boxes.filter((b) =>
-            vehicleClasses.includes(b.class)
-          );
-          console.log(
-            `🚗 Detected ${boxes.length} total objects (${vehicles.length} vehicles) in ${timeline[index].releaseDate}`
-          );
+            console.log(
+              `🔍 YOLO detections for ${timeline[index].releaseDate}:`,
+              detections
+            );
+
+            // Convert YOLO detections to bounding boxes (percentage-based)
+            boxes = detections.map((det: Detection) => ({
+              left: (det.bbox[0] / img.width) * 100,
+              top: (det.bbox[1] / img.height) * 100,
+              width: ((det.bbox[2] - det.bbox[0]) / img.width) * 100,
+              height: ((det.bbox[3] - det.bbox[1]) / img.height) * 100,
+              class: det.class,
+              confidence: det.confidence,
+            }));
+
+            console.log(
+              `🚗 YOLO detected ${boxes.length} vehicles in ${timeline[index].releaseDate}`
+            );
+
+            setLiveDetectionResult(`✅ Found ${boxes.length} vehicle${boxes.length !== 1 ? 's' : ''}`);
+          } else {
+            // Multimodal AI detection mode
+            setLiveDetectionResult(`🤖 Analyzing with ${visionProvider === 'anthropic' ? 'Claude' : 'GPT-5 mini'}...`);
+
+            console.log(
+              `🤖 Using ${visionProvider} vision for ${timeline[index].releaseDate}`
+            );
+
+            const result = await detectVehiclesWithVision(
+              timeline[index].tileUrl,
+              visionProvider
+            );
+
+            console.log(
+              `🚗 Vision detected ${result.vehicleCount} vehicles (confidence: ${result.confidence}):`,
+              result.description
+            );
+
+            // Show live result with AI's description
+            setLiveDetectionResult(
+              `✅ Found ${result.vehicleCount} vehicle${result.vehicleCount !== 1 ? 's' : ''}: ${result.description}`
+            );
+
+            // For vision mode, we don't have bounding boxes, just a count
+            // We'll create empty boxes array and store count in description
+            boxes = [];
+            // Store the count in the annotation for chart purposes
+            setAnnotationData((prev) => {
+              if (prev.find((p) => p.date === timeline[index].releaseDate))
+                return prev;
+              return [
+                ...prev,
+                {
+                  date: timeline[index].releaseDate,
+                  boxes: Array(result.vehicleCount).fill({
+                    left: 0,
+                    top: 0,
+                    width: 0,
+                    height: 0,
+                    class: "vehicle",
+                    confidence: result.confidence,
+                  }),
+                },
+              ];
+            });
+
+            if (index < timeline.length - 1) {
+              autoplayRef.current = setTimeout(() => play(index + 1), 2000); // Longer delay for API calls
+            } else {
+              setAutoplayDone(true);
+              setLiveDetectionResult(null); // Clear when done
+            }
+            return; // Skip the normal box setting below
+          }
 
           setAnnotationData((prev) => {
             if (prev.find((p) => p.date === timeline[index].releaseDate))
               return prev;
             return [
               ...prev,
-              { date: timeline[index].releaseDate, boxes: vehicles },
-            ]; // Only save vehicles!
+              { date: timeline[index].releaseDate, boxes },
+            ];
           });
         } catch (error) {
           console.error("❌ Detection failed:", error);
@@ -169,12 +227,13 @@ export function SatelliteImageViewer({
           autoplayRef.current = setTimeout(() => play(index + 1), 800);
         } else {
           setAutoplayDone(true);
+          setLiveDetectionResult(null); // Clear when done
         }
       };
 
       play(0);
     }
-  }, [timeline, autoplayDone]);
+  }, [timeline, autoplayDone, detectionMode, visionProvider]);
 
   // When autoplay completes fire analysis callback
   useEffect(() => {
@@ -244,6 +303,87 @@ export function SatelliteImageViewer({
         </div>
       </div>
 
+      {/* Detection Mode Selector */}
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/30">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            Detection:
+          </span>
+          <button
+            onClick={() => {
+              setDetectionMode("multimodal");
+              if (autoplayDone) {
+                setAutoplayDone(false);
+              }
+            }}
+            disabled={!autoplayDone}
+            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+              detectionMode === "multimodal"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            Multimodal AI
+          </button>
+          <button
+            onClick={() => {
+              setDetectionMode("yolo");
+              if (autoplayDone) {
+                setAutoplayDone(false);
+              }
+            }}
+            disabled={!autoplayDone}
+            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+              detectionMode === "yolo"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            YOLO
+          </button>
+        </div>
+
+        {detectionMode === "multimodal" && (
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs font-medium text-muted-foreground">
+              Provider:
+            </span>
+            <button
+              onClick={() => {
+                setVisionProvider("anthropic");
+                if (autoplayDone) {
+                  setAutoplayDone(false);
+                }
+              }}
+              disabled={!autoplayDone}
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                visionProvider === "anthropic"
+                  ? "bg-primary/80 text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              Claude
+            </button>
+            <button
+              onClick={() => {
+                setVisionProvider("openai");
+                if (autoplayDone) {
+                  setAutoplayDone(false);
+                }
+              }}
+              disabled={!autoplayDone}
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                visionProvider === "openai"
+                  ? "bg-primary/80 text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              GPT-5 mini
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Image Viewer */}
       <div
         ref={imageContainerRef}
@@ -280,6 +420,15 @@ export function SatelliteImageViewer({
           </p>
           <p className="text-xs text-white/70">{currentImage.provider}</p>
         </div>
+
+        {/* Live Detection Result */}
+        {liveDetectionResult && (
+          <div className="absolute bottom-2 left-2 right-2 px-3 py-2 rounded-md bg-black/80 backdrop-blur-sm border border-white/20">
+            <p className="text-white text-sm font-medium">
+              {liveDetectionResult}
+            </p>
+          </div>
+        )}
 
         {/* YOLO Detection Overlay */}
         {annotationData.find((p) => p.date === currentImage.releaseDate) && (
