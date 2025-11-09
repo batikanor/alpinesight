@@ -3,9 +3,9 @@ import cv2
 from ultralytics import YOLO
 
 def run_yolo11_obb_single(
-    image_path="/Users/lukasbauer/alpinesight/test_data/sat_2.png",
+    image_path="/Users/lukasbauer/alpinesight/test_data/sat_5.jpeg",
     model_path="yolo11n-obb.pt",
-    conf_thres=0.2,
+    conf_thres=0.02,
 ):
     img_path = Path(image_path)
     if not img_path.exists():
@@ -21,7 +21,9 @@ def run_yolo11_obb_single(
         source=img,
         conf=conf_thres,
         imgsz=1280,
-        verbose=False
+        verbose=False,
+        iou=0.5,          # NMS IoU Schwelle (bei OBB = rotated IoU)
+        agnostic_nms=False,
     )
 
     r = results[0]
