@@ -29,8 +29,9 @@ vercel-sandbox==0.0.2
 vercel-sdk==0.0.8
 
 # YOLO detection dependencies (ONNX Runtime instead of PyTorch)
-# Uncompressed: ~300 MB, Compressed (gzip): ~40 MB
-# Fits within Vercel's 250 MB limit (total: 131 MB compressed)
+# Uncompressed: ~886 MB, Compressed: 131 MB
+# May exceed Lambda's uncompressed runtime limit (~250-300 MB)
+# If deployment fails, comment these out until YOLO is actually used
 numpy==2.3.4
 onnxruntime==1.20.1
 opencv-python-headless==4.10.0.84

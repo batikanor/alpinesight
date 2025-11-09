@@ -13,6 +13,19 @@ __pycache__/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Exclude test files and documentation from dependencies (saves ~100 MB)
+**/tests/
+**/test/
+**/*.md
+**/docs/
+**/examples/
+**/benchmarks/
+**/*.pyx
+**/*.pxd
+**/*.c
+**/*.cpp
+**/*.h
+
 # YOLO models (download at runtime instead)
 *.pt
 *.pth
