@@ -95,6 +95,7 @@ class DetectRequest(BaseModel):
     image_url: str
     conf_thres: float | None = 0.1
     classes: list[str] | None = None  # e.g., ["car"]
+    return_image: bool = False  # if True, return base64 encoded annotated image
 
 @app.post("/api/detect_vehicles")
 async def detect_vehicles(req: DetectRequest):
@@ -184,12 +185,44 @@ async def detect_vehicles(req: DetectRequest):
                 "y2": int(y2),
             })
 
-        return {
+        response = {
             "boxes": boxes_list,
             "total": len(boxes_list),
             "per_class": per_class,
             "width": int(w),
             "height": int(h),
         }
+
+        # Optionally return annotated image
+        if req.return_image and boxes_list:
+            import base64
+            vis = img.copy()
+            for box in boxes_list:
+                x1, y1, x2, y2 = box["x1"], box["y1"], box["x2"], box["y2"]
+                cls_name = box["cls"]
+                conf = box["conf"]
+
+                # Draw rectangle
+                cv2.rectangle(vis, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+                # Draw label
+                label = f"{cls_name} {conf:.2f}"
+                cv2.putText(
+                    vis,
+                    label,
+                    (x1, max(0, y1 - 5)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.4,
+                    (0, 255, 0),
+                    1,
+                    cv2.LINE_AA,
+                )
+
+            # Encode to base64
+            _, buffer = cv2.imencode('.jpg', vis)
+            img_base64 = base64.b64encode(buffer).decode('utf-8')
+            response["annotated_image"] = f"data:image/jpeg;base64,{img_base64}"
+
+        return response
     except Exception as e:
         return {"error": str(e)}

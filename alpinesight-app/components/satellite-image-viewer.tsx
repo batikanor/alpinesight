@@ -24,7 +24,13 @@ interface SatelliteImageViewerProps {
 
 interface AnnotationEntry { date: string; boxes: { left: number; top: number; size: number }[] }
 interface DetectionBox { x1: number; y1: number; x2: number; y2: number; cls?: string; conf?: number }
-interface ImageDetections { date: string; width: number; height: number; boxes: DetectionBox[] }
+interface ImageDetections {
+  date: string;
+  width: number;
+  height: number;
+  boxes: DetectionBox[];
+  annotatedImage?: string;  // base64 encoded annotated image
+}
 
 export function SatelliteImageViewer({
   location,
@@ -120,7 +126,11 @@ export function SatelliteImageViewer({
           const resp = await fetch("/api/detect_vehicles", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image_url: timeline[i].tileUrl, conf_thres: 0.02 }),
+            body: JSON.stringify({
+              image_url: timeline[i].tileUrl,
+              conf_thres: 0.02,
+              return_image: true  // Request annotated image
+            }),
           });
           if (!resp.ok) {
             console.error(`Detection API returned ${resp.status}: ${resp.statusText}`);
@@ -130,8 +140,8 @@ export function SatelliteImageViewer({
           console.log(`[Detection ${i}/${timeline.length}]`, {
             url: timeline[i].tileUrl,
             date: timeline[i].releaseDate,
-            response: data,
-            boxCount: data?.boxes?.length || 0
+            boxCount: data?.boxes?.length || 0,
+            hasAnnotatedImage: !!data?.annotated_image
           });
           if (data && !data.error) {
             setDetections((prev) => ({
@@ -141,6 +151,7 @@ export function SatelliteImageViewer({
                 width: data.width || 256,
                 height: data.height || 256,
                 boxes: (data.boxes || []).map((b: any) => ({ x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2, cls: b.cls, conf: b.conf })),
+                annotatedImage: data.annotated_image,  // Store annotated image
               },
             }));
           } else if (data?.error) {
@@ -217,14 +228,27 @@ export function SatelliteImageViewer({
 
       {/* Image Viewer */}
       <div ref={imageContainerRef} className="relative aspect-square max-w-full mx-auto bg-black rounded-lg overflow-hidden">
-        <Image
-          src={currentImage.tileUrl}
-          alt={`Satellite imagery from ${currentImage.releaseDate}`}
-          fill
-          className="object-contain"
-          unoptimized
-          style={{ zIndex: 0 }}
-        />
+        {detections[currentIndex]?.annotatedImage ? (
+          // Show annotated image with bounding boxes drawn on it
+          <Image
+            src={detections[currentIndex].annotatedImage!}
+            alt={`Detected vehicles on ${currentImage.releaseDate}`}
+            fill
+            className="object-contain"
+            unoptimized
+            style={{ zIndex: 10 }}
+          />
+        ) : (
+          // Show original satellite image
+          <Image
+            src={currentImage.tileUrl}
+            alt={`Satellite imagery from ${currentImage.releaseDate}`}
+            fill
+            className="object-contain"
+            unoptimized
+            style={{ zIndex: 0 }}
+          />
+        )}
 
         {/* Navigation Arrows */}
         <button
@@ -259,59 +283,6 @@ export function SatelliteImageViewer({
           </div>
         )}
 
-        {/* Detection overlay (red boxes around cars) */}
-        {detections[currentIndex] && containerSize.width > 0 && containerSize.height > 0 && (
-          <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
-            {(() => {
-              const det = detections[currentIndex]!;
-              const cw = containerSize.width;
-              const ch = containerSize.height;
-              const scale = Math.min(cw / det.width, ch / det.height);
-              const dispW = det.width * scale;
-              const dispH = det.height * scale;
-              const offX = (cw - dispW) / 2;
-              const offY = (ch - dispH) / 2;
-
-              if (det.boxes.length === 0) {
-                return null;
-              }
-
-              return det.boxes.map((b, i) => {
-                const left = offX + b.x1 * scale;
-                const top = offY + b.y1 * scale;
-                const w = (b.x2 - b.x1) * scale;
-                const h = (b.y2 - b.y1) * scale;
-
-                return (
-                  <div
-                    key={i}
-                    className="absolute"
-                    style={{
-                      left: `${left}px`,
-                      top: `${top}px`,
-                      width: `${w}px`,
-                      height: `${h}px`,
-                      border: '3px solid #ef4444',
-                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                      boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.8), 0 0 8px rgba(239, 68, 68, 0.5)',
-                      borderRadius: '2px'
-                    }}
-                  >
-                    {/* Label with confidence */}
-                    {b.cls && b.conf !== undefined && (
-                      <div
-                        className="absolute -top-5 left-0 px-1 py-0.5 text-[10px] font-semibold text-white bg-red-500 rounded whitespace-nowrap"
-                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
-                      >
-                        {b.cls} {(b.conf * 100).toFixed(0)}%
-                      </div>
-                    )}
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        )}
 
         {/* Autoplay progress indicator */}
         {!autoplayDone && (
